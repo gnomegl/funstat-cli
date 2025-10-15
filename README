@@ -1,0 +1,174 @@
+FUNSTAT(0)                      USER COMMANDS                      FUNSTAT(1)
+
+NAME
+     funstat - Go client library and command-line interface for the Funstat API
+
+SYNOPSIS
+     funstat [options] command [args...]
+
+DESCRIPTION
+     The funstat package provides both a programmatic interface (library) and
+     command-line utility for accessing the Funstat API. This implementation
+     follows traditional UNIX design principles with clear separation between
+     library and application layers.
+
+INSTALLATION
+     Library Integration:
+       go get github.com/funstat/funstat-api/pkg/client
+
+     Command-line Tool:
+       go install github.com/funstat/funstat-api/cmd/funstat@latest
+
+     Build from Source:
+       git clone https://github.com/funstat/funstat-api.git
+       cd funstat-api
+       make
+       # or: go build -o funstat ./cmd/funstat
+
+CONFIGURATION
+     Authentication is handled via environment variable or command-line flag:
+
+       export FUNSTAT_API_KEY="your-api-key-here"
+
+     Alternative direct specification:
+       funstat --api-key="your-api-key-here" user resolve username1
+
+LIBRARY INTERFACE
+     The client library provides a clean programmatic interface:
+
+       #include equivalent Go import:
+       import "github.com/funstat/funstat-api/pkg/client"
+
+     Basic Usage Pattern:
+       c := client.New("api-key")                    // Constructor
+       ctx := context.Background()                   // Context setup
+       result, err := c.ResolveUsernames(ctx, usernames)  // API call
+
+     Error Handling:
+       All library functions return (result, error) pairs following
+       standard Go conventions. Check error before using result.
+
+     Optional Features:
+       Debug mode: client.WithDebug(true)
+       Custom HTTP client configuration available
+
+COMMAND-LINE INTERFACE
+     The CLI follows UNIX conventions with hierarchical subcommands:
+
+     Global Options:
+       --api-key=KEY     API authentication key
+       --debug           Enable verbose debugging output
+
+     User Operations:
+       funstat user resolve USERNAME [USERNAME...]
+         Resolve usernames to user IDs (Cost: 0.10 per success)
+
+       funstat user stats USERID
+         Full user statistics (Cost: 1.00)
+
+       funstat user stats-min USERID
+         Minimal user statistics (Cost: FREE)
+
+       funstat user get-by-id USERID [USERID...]
+         Retrieve user data by ID (Cost: 0.10 per success)
+
+       funstat user groups USERID
+         List user's groups (Cost: 5.00)
+
+       funstat user groups-count USERID [--only-with-messages=BOOL]
+         Count user's groups (Cost: FREE)
+
+       funstat user messages USERID [--page=N] [--page-size=N]
+                                    [--group-id=ID] [--text-contains=TEXT]
+         Retrieve user messages (Cost: 10.00 per user on success)
+
+       funstat user messages-count USERID
+         Count user messages (Cost: FREE)
+
+       funstat user names USERID
+         User display name history (Cost: 3.00)
+
+       funstat user usernames USERID
+         Username history (Cost: 3.00)
+
+     Group Operations:
+       funstat group info GROUPID
+         Group information (Cost: 0.01)
+
+API COST SCHEDULE
+     Operation                 Cost (Credits)
+     ----------------------------------------
+     User Reputation           0.00 (FREE)
+     User Stats (Minimal)      0.00 (FREE)
+     User Stats (Full)         1.00
+     Resolve Usernames         0.10 per success
+     Get Users by ID           0.10 per success
+     User Groups               5.00
+     User Groups Count         0.00 (FREE)
+     User Messages             10.00 per user
+     User Messages Count       0.00 (FREE)
+     User Names History        3.00
+     User Usernames History    3.00
+     Group Info                0.01
+
+DEBUGGING
+     Enable debug mode for detailed request/response logging:
+       funstat --debug user stats 123456789
+
+     Library debug mode:
+       client.New("key", client.WithDebug(true))
+
+ERROR HANDLING
+     The system provides structured error reporting:
+
+     Command-line: Non-zero exit codes indicate failure
+     Library: Standard Go error interface with detailed messages
+
+     Error categories include:
+       - Network connectivity issues
+       - Authentication failures
+       - API-specific errors
+       - Input validation errors
+
+RETURN VALUES
+     Command-line tool returns 0 on success, non-zero on error.
+     Library functions return (result, nil) on success, (nil, error) on failure.
+
+ENVIRONMENT
+     FUNSTAT_API_KEY    Default API authentication key
+
+FILES
+     No configuration files are used. All settings via environment or flags.
+
+EXAMPLES
+     Basic username resolution:
+       funstat user resolve alice bob @charlie
+
+     Programmatic usage:
+       c := client.New(os.Getenv("FUNSTAT_API_KEY"))
+       users, err := c.ResolveUsernames(ctx, []string{"alice", "bob"})
+       if err != nil { /* handle error */ }
+
+     Statistics with pagination:
+       funstat user messages 123456789 --page=1 --page-size=50
+
+DIAGNOSTICS
+     All error messages are written to stderr.
+     Debug output (when enabled) shows HTTP request/response details.
+
+SEE ALSO
+     go(1), curl(1)
+
+STANDARDS
+     Follows RFC 7231 (HTTP/1.1) and Go module conventions.
+
+AUTHORS
+     Funstat API client implementation.
+
+LICENSE
+     MIT License. See source distribution for full terms.
+
+BUGS
+     Report bugs to the project repository issue tracker.
+
+FUNSTAT(1)                        2024                         FUNSTAT(1)
