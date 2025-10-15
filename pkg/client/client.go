@@ -3,17 +3,18 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// Client represents the Funstat API client
 type Client struct {
 	baseURL    string
 	apiKey     string
@@ -21,37 +22,37 @@ type Client struct {
 	debug      bool
 }
 
-// Option is a functional option for configuring the client
 type Option func(*Client)
 
-// WithHTTPClient sets a custom HTTP client
 func WithHTTPClient(httpClient *http.Client) Option {
 	return func(c *Client) {
 		c.httpClient = httpClient
 	}
 }
 
-// WithBaseURL sets a custom base URL
 func WithBaseURL(baseURL string) Option {
 	return func(c *Client) {
 		c.baseURL = baseURL
 	}
 }
 
-// WithDebug enables debug mode
 func WithDebug(debug bool) Option {
 	return func(c *Client) {
 		c.debug = debug
 	}
 }
 
-// New creates a new Funstat API client
 func New(apiKey string, opts ...Option) *Client {
+	fmt.Fprintln(os.Stderr, "Warning: Using insecure TLS verification")
+
 	c := &Client{
 		baseURL: "http://api.funstat.info",
 		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
 		},
 	}
 
@@ -62,7 +63,6 @@ func New(apiKey string, opts ...Option) *Client {
 	return c
 }
 
-// doRequest performs an HTTP request with authentication
 func (c *Client) doRequest(ctx context.Context, method, path string, query url.Values, body interface{}) ([]byte, error) {
 	u, err := url.Parse(c.baseURL)
 	if err != nil {
@@ -125,7 +125,6 @@ func (c *Client) doRequest(ctx context.Context, method, path string, query url.V
 	return respBody, nil
 }
 
-// strPtr safely dereferences a string pointer
 func strPtr(s *string) string {
 	if s == nil {
 		return ""
@@ -133,28 +132,20 @@ func strPtr(s *string) string {
 	return *s
 }
 
-// Groups API
-
-// GetGroup gets basic info, links and today stats for a group
 func (c *Client) GetGroup(ctx context.Context, id int64) ([]byte, error) {
 	path := fmt.Sprintf("/api/v1/groups/%d", id)
 	return c.doRequest(ctx, http.MethodGet, path, nil, nil)
 }
 
-// Users API
-
-// GetUserReputation returns user reputation information (FREE)
 func (c *Client) GetUserReputation(ctx context.Context, userID int64) ([]byte, error) {
 	query := url.Values{}
 	query.Set("id", strconv.FormatInt(userID, 10))
 	return c.doRequest(ctx, http.MethodGet, "/api/v1/users/reputation", query, nil)
 }
 
-// ResolveUsernames resolves telegram usernames to user info (Cost: 0.10 per success)
 func (c *Client) ResolveUsernames(ctx context.Context, usernames []string) (*ResolvedUserArrayAPIAnswer, error) {
 	query := url.Values{}
 	for _, username := range usernames {
-		// Remove @ if present
 		username = strings.TrimPrefix(username, "@")
 		query.Add("name", username)
 	}
@@ -172,7 +163,6 @@ func (c *Client) ResolveUsernames(ctx context.Context, usernames []string) (*Res
 	return &result, nil
 }
 
-// GetUserStatsMin returns basic user stats (FREE)
 func (c *Client) GetUserStatsMin(ctx context.Context, userID int64) (*UserStatsMinAPIAnswer, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/stats_min", userID)
 	respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
@@ -188,7 +178,6 @@ func (c *Client) GetUserStatsMin(ctx context.Context, userID int64) (*UserStatsM
 	return &result, nil
 }
 
-// GetUserStats returns full user stats (Cost: 1)
 func (c *Client) GetUserStats(ctx context.Context, userID int64) (*UserStatsAPIAnswer, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/stats", userID)
 	respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
@@ -204,7 +193,6 @@ func (c *Client) GetUserStats(ctx context.Context, userID int64) (*UserStatsAPIA
 	return &result, nil
 }
 
-// GetUsersByID gets user info by telegram ID (Cost: 0.10 per success)
 func (c *Client) GetUsersByID(ctx context.Context, userIDs []int64) (*ResolvedUserArrayAPIAnswer, error) {
 	query := url.Values{}
 	for _, id := range userIDs {
@@ -224,7 +212,6 @@ func (c *Client) GetUsersByID(ctx context.Context, userIDs []int64) (*ResolvedUs
 	return &result, nil
 }
 
-// GetUserGroupsCount returns total count of user groups (FREE)
 func (c *Client) GetUserGroupsCount(ctx context.Context, userID int64, onlyWithMessages bool) (int32, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/groups_count", userID)
 	query := url.Values{}
@@ -243,7 +230,6 @@ func (c *Client) GetUserGroupsCount(ctx context.Context, userID int64, onlyWithM
 	return count, nil
 }
 
-// GetUserMessagesOptions represents options for GetUserMessages
 type GetUserMessagesOptions struct {
 	GroupID      *int64
 	TextContains *string
@@ -252,7 +238,6 @@ type GetUserMessagesOptions struct {
 	PageSize     int32
 }
 
-// GetUserMessages gets user messages (Cost: 10 per user if success)
 func (c *Client) GetUserMessages(ctx context.Context, userID int64, opts GetUserMessagesOptions) (*UserMsgArrayAPIAnswerPaged, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/messages", userID)
 	query := url.Values{}
@@ -282,7 +267,6 @@ func (c *Client) GetUserMessages(ctx context.Context, userID int64, opts GetUser
 	return &result, nil
 }
 
-// GetUserMessagesCount returns total count of user messages (FREE)
 func (c *Client) GetUserMessagesCount(ctx context.Context, userID int64) (int32, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/messages_count", userID)
 
@@ -299,7 +283,6 @@ func (c *Client) GetUserMessagesCount(ctx context.Context, userID int64) (int32,
 	return count, nil
 }
 
-// GetUserGroups returns known user groups (Cost: 5)
 func (c *Client) GetUserGroups(ctx context.Context, userID int64) (*UserChatInfoArrayAPIAnswer, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/groups", userID)
 
@@ -316,7 +299,6 @@ func (c *Client) GetUserGroups(ctx context.Context, userID int64) (*UserChatInfo
 	return &result, nil
 }
 
-// GetUserNames returns user (firstname + lastname) history (Cost: 3)
 func (c *Client) GetUserNames(ctx context.Context, userID int64) (*UserChatInfoArrayAPIAnswer, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/names", userID)
 
@@ -333,7 +315,6 @@ func (c *Client) GetUserNames(ctx context.Context, userID int64) (*UserChatInfoA
 	return &result, nil
 }
 
-// GetUserUsernames returns @usernames history (Cost: 3)
 func (c *Client) GetUserUsernames(ctx context.Context, userID int64) (*UserChatInfoArrayAPIAnswer, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/usernames", userID)
 

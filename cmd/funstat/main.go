@@ -31,14 +31,12 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&apiKey, "api-key", "", "API key (overrides FUNSTAT_API_KEY env var)")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug output")
 
-	// User commands
 	userCmd := &cobra.Command{
 		Use:   "user",
 		Short: "User-related operations",
 		Long:  `Perform operations related to Telegram users.`,
 	}
 
-	// Resolve username command
 	resolveCmd := &cobra.Command{
 		Use:   "resolve [usernames...]",
 		Short: "Resolve Telegram usernames to user info (Cost: 0.10 per success)",
@@ -46,7 +44,6 @@ func init() {
 		RunE:  resolveUsernames,
 	}
 
-	// Get user stats command
 	statsCmd := &cobra.Command{
 		Use:   "stats [user-id]",
 		Short: "Get full user statistics (Cost: 1)",
@@ -54,7 +51,6 @@ func init() {
 		RunE:  getUserStats,
 	}
 
-	// Get minimal user stats command
 	statsMinCmd := &cobra.Command{
 		Use:   "stats-min [user-id]",
 		Short: "Get minimal user statistics (FREE)",
@@ -62,7 +58,6 @@ func init() {
 		RunE:  getUserStatsMin,
 	}
 
-	// Get user by ID command
 	getByIDCmd := &cobra.Command{
 		Use:   "get-by-id [user-ids...]",
 		Short: "Get users by Telegram ID (Cost: 0.10 per success)",
@@ -70,7 +65,6 @@ func init() {
 		RunE:  getUsersByID,
 	}
 
-	// Get user groups command
 	groupsCmd := &cobra.Command{
 		Use:   "groups [user-id]",
 		Short: "Get user's groups (Cost: 5)",
@@ -78,7 +72,6 @@ func init() {
 		RunE:  getUserGroups,
 	}
 
-	// Get user groups count command
 	groupsCountCmd := &cobra.Command{
 		Use:   "groups-count [user-id]",
 		Short: "Get count of user's groups (FREE)",
@@ -87,7 +80,6 @@ func init() {
 	}
 	groupsCountCmd.Flags().Bool("only-with-messages", true, "Only count groups where user has messages")
 
-	// Get user messages command
 	messagesCmd := &cobra.Command{
 		Use:   "messages [user-id]",
 		Short: "Get user messages (Cost: 10 per user if success)",
@@ -100,7 +92,6 @@ func init() {
 	messagesCmd.Flags().Int32("page", 1, "Page number")
 	messagesCmd.Flags().Int32("page-size", 10, "Page size")
 
-	// Get user messages count command
 	messagesCountCmd := &cobra.Command{
 		Use:   "messages-count [user-id]",
 		Short: "Get count of user's messages (FREE)",
@@ -108,7 +99,6 @@ func init() {
 		RunE:  getUserMessagesCount,
 	}
 
-	// Get user names history command
 	namesCmd := &cobra.Command{
 		Use:   "names [user-id]",
 		Short: "Get user's name history (Cost: 3)",
@@ -116,7 +106,6 @@ func init() {
 		RunE:  getUserNames,
 	}
 
-	// Get user usernames history command
 	usernamesCmd := &cobra.Command{
 		Use:   "usernames [user-id]",
 		Short: "Get user's @username history (Cost: 3)",
@@ -124,19 +113,16 @@ func init() {
 		RunE:  getUserUsernames,
 	}
 
-	// Add all user subcommands
 	userCmd.AddCommand(resolveCmd, statsCmd, statsMinCmd, getByIDCmd,
 		groupsCmd, groupsCountCmd, messagesCmd, messagesCountCmd,
 		namesCmd, usernamesCmd)
 
-	// Group commands
 	groupCmd := &cobra.Command{
 		Use:   "group",
 		Short: "Group-related operations",
 		Long:  `Perform operations related to Telegram groups.`,
 	}
 
-	// Get group info command
 	groupInfoCmd := &cobra.Command{
 		Use:   "info [group-id]",
 		Short: "Get group basic info (Cost: 0.01)",
@@ -167,7 +153,6 @@ func initConfig() {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
 
-	// Set API key from env if not provided via flag
 	if apiKey == "" {
 		apiKey = viper.GetString("API_KEY")
 	}
@@ -394,7 +379,6 @@ func getGroupInfo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Pretty print raw JSON response
 	var data interface{}
 	if err := json.Unmarshal(result, &data); err != nil {
 		return err

@@ -1,0 +1,983 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>funstat: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/funstat/funstat-api/cmd/funstat/main.go (15.5%)</option>
+				
+				<option value="file1">github.com/funstat/funstat-api/examples/basic_usage.go (0.0%)</option>
+				
+				<option value="file2">github.com/funstat/funstat-api/pkg/client/client.go (78.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "os"
+        "strconv"
+
+        "github.com/funstat/funstat-api/pkg/client"
+        "github.com/spf13/cobra"
+        "github.com/spf13/viper"
+)
+
+var (
+        cfgFile string
+        apiKey  string
+        debug   bool
+)
+
+var rootCmd = &amp;cobra.Command{
+        Use:   "funstat",
+        Short: "Funstat API CLI client",
+        Long:  `A command-line interface for interacting with the Funstat API.`,
+}
+
+func init() <span class="cov8" title="1">{
+        cobra.OnInitialize(initConfig)
+
+        rootCmd.PersistentFlags().StringVar(&amp;cfgFile, "config", "", "config file (default is $HOME/.funstat.yaml)")
+        rootCmd.PersistentFlags().StringVar(&amp;apiKey, "api-key", "", "API key (overrides FUNSTAT_API_KEY env var)")
+        rootCmd.PersistentFlags().BoolVar(&amp;debug, "debug", false, "Enable debug output")
+
+        // User commands
+        userCmd := &amp;cobra.Command{
+                Use:   "user",
+                Short: "User-related operations",
+                Long:  `Perform operations related to Telegram users.`,
+        }
+
+        // Resolve username command
+        resolveCmd := &amp;cobra.Command{
+                Use:   "resolve [usernames...]",
+                Short: "Resolve Telegram usernames to user info (Cost: 0.10 per success)",
+                Args:  cobra.MinimumNArgs(1),
+                RunE:  resolveUsernames,
+        }
+
+        // Get user stats command
+        statsCmd := &amp;cobra.Command{
+                Use:   "stats [user-id]",
+                Short: "Get full user statistics (Cost: 1)",
+                Args:  cobra.ExactArgs(1),
+                RunE:  getUserStats,
+        }
+
+        // Get minimal user stats command
+        statsMinCmd := &amp;cobra.Command{
+                Use:   "stats-min [user-id]",
+                Short: "Get minimal user statistics (FREE)",
+                Args:  cobra.ExactArgs(1),
+                RunE:  getUserStatsMin,
+        }
+
+        // Get user by ID command
+        getByIDCmd := &amp;cobra.Command{
+                Use:   "get-by-id [user-ids...]",
+                Short: "Get users by Telegram ID (Cost: 0.10 per success)",
+                Args:  cobra.MinimumNArgs(1),
+                RunE:  getUsersByID,
+        }
+
+        // Get user groups command
+        groupsCmd := &amp;cobra.Command{
+                Use:   "groups [user-id]",
+                Short: "Get user's groups (Cost: 5)",
+                Args:  cobra.ExactArgs(1),
+                RunE:  getUserGroups,
+        }
+
+        // Get user groups count command
+        groupsCountCmd := &amp;cobra.Command{
+                Use:   "groups-count [user-id]",
+                Short: "Get count of user's groups (FREE)",
+                Args:  cobra.ExactArgs(1),
+                RunE:  getUserGroupsCount,
+        }
+        groupsCountCmd.Flags().Bool("only-with-messages", true, "Only count groups where user has messages")
+
+        // Get user messages command
+        messagesCmd := &amp;cobra.Command{
+                Use:   "messages [user-id]",
+                Short: "Get user messages (Cost: 10 per user if success)",
+                Args:  cobra.ExactArgs(1),
+                RunE:  getUserMessages,
+        }
+        messagesCmd.Flags().Int64("group-id", 0, "Filter by group ID")
+        messagesCmd.Flags().String("text-contains", "", "Filter by message text")
+        messagesCmd.Flags().Int32("media-code", 0, "Filter by media code")
+        messagesCmd.Flags().Int32("page", 1, "Page number")
+        messagesCmd.Flags().Int32("page-size", 10, "Page size")
+
+        // Get user messages count command
+        messagesCountCmd := &amp;cobra.Command{
+                Use:   "messages-count [user-id]",
+                Short: "Get count of user's messages (FREE)",
+                Args:  cobra.ExactArgs(1),
+                RunE:  getUserMessagesCount,
+        }
+
+        // Get user names history command
+        namesCmd := &amp;cobra.Command{
+                Use:   "names [user-id]",
+                Short: "Get user's name history (Cost: 3)",
+                Args:  cobra.ExactArgs(1),
+                RunE:  getUserNames,
+        }
+
+        // Get user usernames history command
+        usernamesCmd := &amp;cobra.Command{
+                Use:   "usernames [user-id]",
+                Short: "Get user's @username history (Cost: 3)",
+                Args:  cobra.ExactArgs(1),
+                RunE:  getUserUsernames,
+        }
+
+        // Add all user subcommands
+        userCmd.AddCommand(resolveCmd, statsCmd, statsMinCmd, getByIDCmd,
+                groupsCmd, groupsCountCmd, messagesCmd, messagesCountCmd,
+                namesCmd, usernamesCmd)
+
+        // Group commands
+        groupCmd := &amp;cobra.Command{
+                Use:   "group",
+                Short: "Group-related operations",
+                Long:  `Perform operations related to Telegram groups.`,
+        }
+
+        // Get group info command
+        groupInfoCmd := &amp;cobra.Command{
+                Use:   "info [group-id]",
+                Short: "Get group basic info (Cost: 0.01)",
+                Args:  cobra.ExactArgs(1),
+                RunE:  getGroupInfo,
+        }
+
+        groupCmd.AddCommand(groupInfoCmd)
+
+        rootCmd.AddCommand(userCmd, groupCmd)
+}</span>
+
+func initConfig() <span class="cov0" title="0">{
+        if cfgFile != "" </span><span class="cov0" title="0">{
+                viper.SetConfigFile(cfgFile)
+        }</span> else<span class="cov0" title="0"> {
+                home, err := os.UserHomeDir()
+                cobra.CheckErr(err)
+
+                viper.AddConfigPath(home)
+                viper.SetConfigName(".funstat")
+        }</span>
+
+        <span class="cov0" title="0">viper.AutomaticEnv()
+        viper.SetEnvPrefix("FUNSTAT")
+
+        if err := viper.ReadInConfig(); err == nil </span><span class="cov0" title="0">{
+                fmt.Println("Using config file:", viper.ConfigFileUsed())
+        }</span>
+
+        // Set API key from env if not provided via flag
+        <span class="cov0" title="0">if apiKey == "" </span><span class="cov0" title="0">{
+                apiKey = viper.GetString("API_KEY")
+        }</span>
+
+        <span class="cov0" title="0">if apiKey == "" </span><span class="cov0" title="0">{
+                fmt.Fprintln(os.Stderr, "Error: API key is required. Set FUNSTAT_API_KEY environment variable or use --api-key flag")
+                os.Exit(1)
+        }</span>
+}
+
+func getClient() *client.Client <span class="cov0" title="0">{
+        opts := []client.Option{}
+        if debug </span><span class="cov0" title="0">{
+                opts = append(opts, client.WithDebug(true))
+        }</span>
+        <span class="cov0" title="0">return client.New(apiKey, opts...)</span>
+}
+
+func resolveUsernames(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        c := getClient()
+        ctx := context.Background()
+
+        result, err := c.ResolveUsernames(ctx, args)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return printJSON(result)</span>
+}
+
+func getUserStats(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        userID, err := strconv.ParseInt(args[0], 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid user ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">c := getClient()
+        ctx := context.Background()
+
+        result, err := c.GetUserStats(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return printJSON(result)</span>
+}
+
+func getUserStatsMin(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        userID, err := strconv.ParseInt(args[0], 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid user ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">c := getClient()
+        ctx := context.Background()
+
+        result, err := c.GetUserStatsMin(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return printJSON(result)</span>
+}
+
+func getUsersByID(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        var userIDs []int64
+        for _, arg := range args </span><span class="cov0" title="0">{
+                id, err := strconv.ParseInt(arg, 10, 64)
+                if err != nil </span><span class="cov0" title="0">{
+                        return fmt.Errorf("invalid user ID %s: %w", arg, err)
+                }</span>
+                <span class="cov0" title="0">userIDs = append(userIDs, id)</span>
+        }
+
+        <span class="cov0" title="0">c := getClient()
+        ctx := context.Background()
+
+        result, err := c.GetUsersByID(ctx, userIDs)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return printJSON(result)</span>
+}
+
+func getUserGroups(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        userID, err := strconv.ParseInt(args[0], 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid user ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">c := getClient()
+        ctx := context.Background()
+
+        result, err := c.GetUserGroups(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return printJSON(result)</span>
+}
+
+func getUserGroupsCount(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        userID, err := strconv.ParseInt(args[0], 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid user ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">onlyWithMessages, _ := cmd.Flags().GetBool("only-with-messages")
+
+        c := getClient()
+        ctx := context.Background()
+
+        count, err := c.GetUserGroupsCount(ctx, userID, onlyWithMessages)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("Groups count: %d\n", count)
+        return nil</span>
+}
+
+func getUserMessages(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        userID, err := strconv.ParseInt(args[0], 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid user ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">groupID, _ := cmd.Flags().GetInt64("group-id")
+        textContains, _ := cmd.Flags().GetString("text-contains")
+        mediaCode, _ := cmd.Flags().GetInt32("media-code")
+        page, _ := cmd.Flags().GetInt32("page")
+        pageSize, _ := cmd.Flags().GetInt32("page-size")
+
+        opts := client.GetUserMessagesOptions{
+                Page:     page,
+                PageSize: pageSize,
+        }
+
+        if groupID != 0 </span><span class="cov0" title="0">{
+                opts.GroupID = &amp;groupID
+        }</span>
+        <span class="cov0" title="0">if textContains != "" </span><span class="cov0" title="0">{
+                opts.TextContains = &amp;textContains
+        }</span>
+        <span class="cov0" title="0">if mediaCode != 0 </span><span class="cov0" title="0">{
+                opts.MediaCode = &amp;mediaCode
+        }</span>
+
+        <span class="cov0" title="0">c := getClient()
+        ctx := context.Background()
+
+        result, err := c.GetUserMessages(ctx, userID, opts)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return printJSON(result)</span>
+}
+
+func getUserMessagesCount(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        userID, err := strconv.ParseInt(args[0], 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid user ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">c := getClient()
+        ctx := context.Background()
+
+        count, err := c.GetUserMessagesCount(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">fmt.Printf("Messages count: %d\n", count)
+        return nil</span>
+}
+
+func getUserNames(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        userID, err := strconv.ParseInt(args[0], 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid user ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">c := getClient()
+        ctx := context.Background()
+
+        result, err := c.GetUserNames(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return printJSON(result)</span>
+}
+
+func getUserUsernames(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        userID, err := strconv.ParseInt(args[0], 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid user ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">c := getClient()
+        ctx := context.Background()
+
+        result, err := c.GetUserUsernames(ctx, userID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        <span class="cov0" title="0">return printJSON(result)</span>
+}
+
+func getGroupInfo(cmd *cobra.Command, args []string) error <span class="cov0" title="0">{
+        groupID, err := strconv.ParseInt(args[0], 10, 64)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("invalid group ID: %w", err)
+        }</span>
+
+        <span class="cov0" title="0">c := getClient()
+        ctx := context.Background()
+
+        result, err := c.GetGroup(ctx, groupID)
+        if err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+
+        // Pretty print raw JSON response
+        <span class="cov0" title="0">var data interface{}
+        if err := json.Unmarshal(result, &amp;data); err != nil </span><span class="cov0" title="0">{
+                return err
+        }</span>
+        <span class="cov0" title="0">return printJSON(data)</span>
+}
+
+func printJSON(v interface{}) error <span class="cov0" title="0">{
+        encoder := json.NewEncoder(os.Stdout)
+        encoder.SetIndent("", "  ")
+        return encoder.Encode(v)
+}</span>
+
+func main() <span class="cov0" title="0">{
+        if err := rootCmd.Execute(); err != nil </span><span class="cov0" title="0">{
+                fmt.Fprintln(os.Stderr, err)
+                os.Exit(1)
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package main
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "log"
+        "os"
+
+        "github.com/funstat/funstat-api/pkg/client"
+)
+
+func main() <span class="cov0" title="0">{
+        // Get API key from environment
+        apiKey := os.Getenv("FUNSTAT_API_KEY")
+        if apiKey == "" </span><span class="cov0" title="0">{
+                log.Fatal("FUNSTAT_API_KEY environment variable is required")
+        }</span>
+
+        // Create client with optional debug mode
+        <span class="cov0" title="0">c := client.New(apiKey, client.WithDebug(false))
+        ctx := context.Background()
+
+        // Example 1: Resolve usernames (Cost: 0.10 per success)
+        resolvedUsers, err := c.ResolveUsernames(ctx, []string{"durov", "telegram"})
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error resolving usernames: %v", err)
+        }</span> else<span class="cov0" title="0"> {
+                fmt.Printf("Resolved %d users\n", len(resolvedUsers.Data))
+                fmt.Printf("Request cost: %.2f\n", resolvedUsers.Tech.RequestCost)
+                fmt.Printf("Current balance: %.2f\n", resolvedUsers.Tech.CurrentBalance)
+
+                for _, user := range resolvedUsers.Data </span><span class="cov0" title="0">{
+                        fmt.Printf("  User: %s %s (@%s) - ID: %d, Active: %v\n",
+                                strPtr(user.FirstName), strPtr(user.LastName),
+                                strPtr(user.Username), user.ID, user.IsActive)
+                }</span>
+        }
+
+        // Example 2: Get user stats - minimal (FREE)
+        <span class="cov0" title="0">if len(resolvedUsers.Data) &gt; 0 </span><span class="cov0" title="0">{
+                userID := resolvedUsers.Data[0].ID
+                statsMin, err := c.GetUserStatsMin(ctx, userID)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error getting minimal stats: %v", err)
+                }</span> else<span class="cov0" title="0"> {
+                        if statsMin.Data != nil </span><span class="cov0" title="0">{
+                                fmt.Printf("User: %s %s\n",
+                                        strPtr(statsMin.Data.FirstName),
+                                        strPtr(statsMin.Data.LastName))
+                                fmt.Printf("  Total messages: %d\n", statsMin.Data.TotalMsgCount)
+                                fmt.Printf("  Groups with messages: %d\n", statsMin.Data.MsgInGroupsCount)
+                                fmt.Printf("  Total groups: %d\n", statsMin.Data.TotalGroups)
+                                fmt.Printf("  Admin in groups: %d\n", statsMin.Data.AdmInGroups)
+                        }</span>
+                }
+        }
+
+        // Example 3: Get user groups count (FREE)
+        <span class="cov0" title="0">if len(resolvedUsers.Data) &gt; 0 </span><span class="cov0" title="0">{
+                userID := resolvedUsers.Data[0].ID
+                count, err := c.GetUserGroupsCount(ctx, userID, true)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error getting groups count: %v", err)
+                }</span> else<span class="cov0" title="0"> {
+                        fmt.Printf("User is in %d groups (with messages)\n", count)
+                }</span>
+        }
+
+        // Example 4: Get user messages count (FREE)
+        <span class="cov0" title="0">if len(resolvedUsers.Data) &gt; 0 </span><span class="cov0" title="0">{
+                userID := resolvedUsers.Data[0].ID
+                count, err := c.GetUserMessagesCount(ctx, userID)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Printf("Error getting messages count: %v", err)
+                }</span> else<span class="cov0" title="0"> {
+                        fmt.Printf("User has %d total messages\n", count)
+                }</span>
+        }
+
+        // Example 5: Get users by ID (Cost: 0.10 per success)
+        <span class="cov0" title="0">usersByID, err := c.GetUsersByID(ctx, []int64{1, 777000})
+        if err != nil </span><span class="cov0" title="0">{
+                log.Printf("Error getting users by ID: %v", err)
+        }</span> else<span class="cov0" title="0"> {
+                fmt.Printf("Found %d users by ID\n", len(usersByID.Data))
+                for _, user := range usersByID.Data </span><span class="cov0" title="0">{
+                        fmt.Printf("  User ID %d: %s %s (@%s)\n",
+                                user.ID, strPtr(user.FirstName),
+                                strPtr(user.LastName), strPtr(user.Username))
+                }</span>
+        }
+}
+
+func strPtr(s *string) string <span class="cov0" title="0">{
+        if s == nil </span><span class="cov0" title="0">{
+                return ""
+        }</span>
+        <span class="cov0" title="0">return *s</span>
+}
+
+func printJSON(v interface{}) <span class="cov0" title="0">{
+        data, _ := json.MarshalIndent(v, "", "  ")
+        fmt.Println(string(data))
+}</span>
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package client
+
+import (
+        "bytes"
+        "context"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "net/url"
+        "strconv"
+        "strings"
+        "time"
+)
+
+// Client represents the Funstat API client
+type Client struct {
+        baseURL    string
+        apiKey     string
+        httpClient *http.Client
+        debug      bool
+}
+
+// Option is a functional option for configuring the client
+type Option func(*Client)
+
+// WithHTTPClient sets a custom HTTP client
+func WithHTTPClient(httpClient *http.Client) Option <span class="cov8" title="1">{
+        return func(c *Client) </span><span class="cov8" title="1">{
+                c.httpClient = httpClient
+        }</span>
+}
+
+// WithBaseURL sets a custom base URL
+func WithBaseURL(baseURL string) Option <span class="cov8" title="1">{
+        return func(c *Client) </span><span class="cov8" title="1">{
+                c.baseURL = baseURL
+        }</span>
+}
+
+// WithDebug enables debug mode
+func WithDebug(debug bool) Option <span class="cov8" title="1">{
+        return func(c *Client) </span><span class="cov8" title="1">{
+                c.debug = debug
+        }</span>
+}
+
+// New creates a new Funstat API client
+func New(apiKey string, opts ...Option) *Client <span class="cov8" title="1">{
+        c := &amp;Client{
+                baseURL: "http://api.funstat.info",
+                apiKey:  apiKey,
+                httpClient: &amp;http.Client{
+                        Timeout: 30 * time.Second,
+                },
+        }
+
+        for _, opt := range opts </span><span class="cov8" title="1">{
+                opt(c)
+        }</span>
+
+        <span class="cov8" title="1">return c</span>
+}
+
+// doRequest performs an HTTP request with authentication
+func (c *Client) doRequest(ctx context.Context, method, path string, query url.Values, body interface{}) ([]byte, error) <span class="cov8" title="1">{
+        u, err := url.Parse(c.baseURL)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("invalid base URL: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">u.Path = path
+        if query != nil </span><span class="cov8" title="1">{
+                u.RawQuery = query.Encode()
+        }</span>
+
+        <span class="cov8" title="1">var reqBody io.Reader
+        if body != nil </span><span class="cov0" title="0">{
+                jsonData, err := json.Marshal(body)
+                if err != nil </span><span class="cov0" title="0">{
+                        return nil, fmt.Errorf("failed to marshal request body: %w", err)
+                }</span>
+                <span class="cov0" title="0">reqBody = bytes.NewReader(jsonData)</span>
+        }
+
+        <span class="cov8" title="1">req, err := http.NewRequestWithContext(ctx, method, u.String(), reqBody)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create request: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">req.Header.Set("Authorization", "Bearer "+c.apiKey)
+        if body != nil </span><span class="cov0" title="0">{
+                req.Header.Set("Content-Type", "application/json")
+        }</span>
+
+        <span class="cov8" title="1">if c.debug </span><span class="cov0" title="0">{
+                fmt.Printf("Request: %s %s\n", method, u.String())
+        }</span>
+
+        <span class="cov8" title="1">resp, err := c.httpClient.Do(req)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("request failed: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        respBody, err := io.ReadAll(resp.Body)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to read response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">if c.debug </span><span class="cov0" title="0">{
+                fmt.Printf("Response Status: %d\n", resp.StatusCode)
+                fmt.Printf("Response Body: %s\n", string(respBody))
+        }</span>
+
+        <span class="cov8" title="1">if resp.StatusCode &gt;= 400 </span><span class="cov8" title="1">{
+                var problem AppProblem
+                if err := json.Unmarshal(respBody, &amp;problem); err == nil </span><span class="cov8" title="1">{
+                        return nil, fmt.Errorf("API error: %s - %s",
+                                strPtr(problem.Title), strPtr(problem.Detail))
+                }</span>
+                <span class="cov0" title="0">return nil, fmt.Errorf("API error: status %d", resp.StatusCode)</span>
+        }
+
+        <span class="cov8" title="1">return respBody, nil</span>
+}
+
+// strPtr safely dereferences a string pointer
+func strPtr(s *string) string <span class="cov8" title="1">{
+        if s == nil </span><span class="cov0" title="0">{
+                return ""
+        }</span>
+        <span class="cov8" title="1">return *s</span>
+}
+
+// Groups API
+
+// GetGroup gets basic info, links and today stats for a group
+func (c *Client) GetGroup(ctx context.Context, id int64) ([]byte, error) <span class="cov8" title="1">{
+        path := fmt.Sprintf("/api/v1/groups/%d", id)
+        return c.doRequest(ctx, http.MethodGet, path, nil, nil)
+}</span>
+
+// Users API
+
+// GetUserReputation returns user reputation information (FREE)
+func (c *Client) GetUserReputation(ctx context.Context, userID int64) ([]byte, error) <span class="cov0" title="0">{
+        query := url.Values{}
+        query.Set("id", strconv.FormatInt(userID, 10))
+        return c.doRequest(ctx, http.MethodGet, "/api/v1/users/reputation", query, nil)
+}</span>
+
+// ResolveUsernames resolves telegram usernames to user info (Cost: 0.10 per success)
+func (c *Client) ResolveUsernames(ctx context.Context, usernames []string) (*ResolvedUserArrayAPIAnswer, error) <span class="cov8" title="1">{
+        query := url.Values{}
+        for _, username := range usernames </span><span class="cov8" title="1">{
+                // Remove @ if present
+                username = strings.TrimPrefix(username, "@")
+                query.Add("name", username)
+        }</span>
+
+        <span class="cov8" title="1">respBody, err := c.doRequest(ctx, http.MethodGet, "/api/v1/users/resolve_username", query, nil)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var result ResolvedUserArrayAPIAnswer
+        if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;result, nil</span>
+}
+
+// GetUserStatsMin returns basic user stats (FREE)
+func (c *Client) GetUserStatsMin(ctx context.Context, userID int64) (*UserStatsMinAPIAnswer, error) <span class="cov8" title="1">{
+        path := fmt.Sprintf("/api/v1/users/%d/stats_min", userID)
+        respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var result UserStatsMinAPIAnswer
+        if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;result, nil</span>
+}
+
+// GetUserStats returns full user stats (Cost: 1)
+func (c *Client) GetUserStats(ctx context.Context, userID int64) (*UserStatsAPIAnswer, error) <span class="cov8" title="1">{
+        path := fmt.Sprintf("/api/v1/users/%d/stats", userID)
+        respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+        if err != nil </span><span class="cov8" title="1">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var result UserStatsAPIAnswer
+        if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;result, nil</span>
+}
+
+// GetUsersByID gets user info by telegram ID (Cost: 0.10 per success)
+func (c *Client) GetUsersByID(ctx context.Context, userIDs []int64) (*ResolvedUserArrayAPIAnswer, error) <span class="cov8" title="1">{
+        query := url.Values{}
+        for _, id := range userIDs </span><span class="cov8" title="1">{
+                query.Add("id", strconv.FormatInt(id, 10))
+        }</span>
+
+        <span class="cov8" title="1">respBody, err := c.doRequest(ctx, http.MethodGet, "/api/v1/users/basic_info_by_id", query, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var result ResolvedUserArrayAPIAnswer
+        if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;result, nil</span>
+}
+
+// GetUserGroupsCount returns total count of user groups (FREE)
+func (c *Client) GetUserGroupsCount(ctx context.Context, userID int64, onlyWithMessages bool) (int32, error) <span class="cov8" title="1">{
+        path := fmt.Sprintf("/api/v1/users/%d/groups_count", userID)
+        query := url.Values{}
+        query.Set("onlyMsg", strconv.FormatBool(onlyWithMessages))
+
+        respBody, err := c.doRequest(ctx, http.MethodGet, path, query, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">var count int32
+        if err := json.Unmarshal(respBody, &amp;count); err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return count, nil</span>
+}
+
+// GetUserMessagesOptions represents options for GetUserMessages
+type GetUserMessagesOptions struct {
+        GroupID      *int64
+        TextContains *string
+        MediaCode    *int32
+        Page         int32
+        PageSize     int32
+}
+
+// GetUserMessages gets user messages (Cost: 10 per user if success)
+func (c *Client) GetUserMessages(ctx context.Context, userID int64, opts GetUserMessagesOptions) (*UserMsgArrayAPIAnswerPaged, error) <span class="cov8" title="1">{
+        path := fmt.Sprintf("/api/v1/users/%d/messages", userID)
+        query := url.Values{}
+
+        if opts.GroupID != nil </span><span class="cov8" title="1">{
+                query.Set("group_id", strconv.FormatInt(*opts.GroupID, 10))
+        }</span>
+        <span class="cov8" title="1">if opts.TextContains != nil </span><span class="cov8" title="1">{
+                query.Set("text_contains", *opts.TextContains)
+        }</span>
+        <span class="cov8" title="1">if opts.MediaCode != nil </span><span class="cov8" title="1">{
+                query.Set("media_code", strconv.Itoa(int(*opts.MediaCode)))
+        }</span>
+        <span class="cov8" title="1">query.Set("page", strconv.Itoa(int(opts.Page)))
+        query.Set("pageSize", strconv.Itoa(int(opts.PageSize)))
+
+        respBody, err := c.doRequest(ctx, http.MethodGet, path, query, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var result UserMsgArrayAPIAnswerPaged
+        if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;result, nil</span>
+}
+
+// GetUserMessagesCount returns total count of user messages (FREE)
+func (c *Client) GetUserMessagesCount(ctx context.Context, userID int64) (int32, error) <span class="cov8" title="1">{
+        path := fmt.Sprintf("/api/v1/users/%d/messages_count", userID)
+
+        respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return 0, err
+        }</span>
+
+        <span class="cov8" title="1">var count int32
+        if err := json.Unmarshal(respBody, &amp;count); err != nil </span><span class="cov0" title="0">{
+                return 0, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return count, nil</span>
+}
+
+// GetUserGroups returns known user groups (Cost: 5)
+func (c *Client) GetUserGroups(ctx context.Context, userID int64) (*UserChatInfoArrayAPIAnswer, error) <span class="cov8" title="1">{
+        path := fmt.Sprintf("/api/v1/users/%d/groups", userID)
+
+        respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var result UserChatInfoArrayAPIAnswer
+        if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;result, nil</span>
+}
+
+// GetUserNames returns user (firstname + lastname) history (Cost: 3)
+func (c *Client) GetUserNames(ctx context.Context, userID int64) (*UserChatInfoArrayAPIAnswer, error) <span class="cov8" title="1">{
+        path := fmt.Sprintf("/api/v1/users/%d/names", userID)
+
+        respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var result UserChatInfoArrayAPIAnswer
+        if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;result, nil</span>
+}
+
+// GetUserUsernames returns @usernames history (Cost: 3)
+func (c *Client) GetUserUsernames(ctx context.Context, userID int64) (*UserChatInfoArrayAPIAnswer, error) <span class="cov8" title="1">{
+        path := fmt.Sprintf("/api/v1/users/%d/usernames", userID)
+
+        respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, err
+        }</span>
+
+        <span class="cov8" title="1">var result UserChatInfoArrayAPIAnswer
+        if err := json.Unmarshal(respBody, &amp;result); err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to parse response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return &amp;result, nil</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

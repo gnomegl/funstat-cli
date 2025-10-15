@@ -4,7 +4,6 @@ import (
 	"time"
 )
 
-// AppProblem represents an API error response
 type AppProblem struct {
 	Detail     *string    `json:"detail,omitempty"`
 	Instance   *string    `json:"instance,omitempty"`
@@ -16,14 +15,12 @@ type AppProblem struct {
 	DateTime   *time.Time `json:"dateTime,omitempty"`
 }
 
-// TechInfo contains technical information about the request
 type TechInfo struct {
 	RequestCost     float32 `json:"request_cost"`
 	CurrentBalance  float32 `json:"current_ballance"`
 	RequestDuration string  `json:"request_duration"`
 }
 
-// ChatInfo represents chat/group information
 type ChatInfo struct {
 	ID        int64   `json:"id"`
 	Title     string  `json:"title"`
@@ -31,7 +28,6 @@ type ChatInfo struct {
 	Username  *string `json:"username,omitempty"`
 }
 
-// ResolvedUser represents resolved user information
 type ResolvedUser struct {
 	ID         int64   `json:"id"`
 	Username   *string `json:"username,omitempty"`
@@ -42,14 +38,12 @@ type ResolvedUser struct {
 	HasPremium *bool   `json:"has_premium,omitempty"`
 }
 
-// ResolvedUserArrayAPIAnswer represents the API response for resolved users
 type ResolvedUserArrayAPIAnswer struct {
 	Success bool           `json:"success"`
 	Tech    TechInfo       `json:"tech"`
 	Data    []ResolvedUser `json:"data,omitempty"`
 }
 
-// UserStatsMin represents minimal user statistics
 type UserStatsMin struct {
 	ID               int64      `json:"id"`
 	FirstName        *string    `json:"first_name,omitempty"`
@@ -66,14 +60,12 @@ type UserStatsMin struct {
 	TotalGroups      int32      `json:"total_groups"`
 }
 
-// UserStatsMinAPIAnswer represents the API response for minimal user stats
 type UserStatsMinAPIAnswer struct {
 	Success bool          `json:"success"`
 	Tech    TechInfo      `json:"tech"`
 	Data    *UserStatsMin `json:"data,omitempty"`
 }
 
-// UserStats represents full user statistics
 type UserStats struct {
 	ID                int64      `json:"id"`
 	FirstName         *string    `json:"first_name,omitempty"`
@@ -100,14 +92,12 @@ type UserStats struct {
 	MediaUsage        *string    `json:"media_usage,omitempty"`
 }
 
-// UserStatsAPIAnswer represents the API response for full user stats
 type UserStatsAPIAnswer struct {
 	Success bool       `json:"success"`
 	Tech    TechInfo   `json:"tech"`
 	Data    *UserStats `json:"data,omitempty"`
 }
 
-// UserMsg represents a user message
 type UserMsg struct {
 	Date             time.Time `json:"date"`
 	MessageID        int32     `json:"messageId"`
@@ -118,7 +108,6 @@ type UserMsg struct {
 	Group            ChatInfo  `json:"group"`
 }
 
-// Paging represents pagination information
 type Paging struct {
 	Total       int32 `json:"total"`
 	CurrentPage int32 `json:"currentPage"`
@@ -126,15 +115,13 @@ type Paging struct {
 	TotalPages  int32 `json:"totalPages"`
 }
 
-// UserMsgArrayAPIAnswerPaged represents the paginated API response for user messages
 type UserMsgArrayAPIAnswerPaged struct {
-	Success bool        `json:"success"`
-	Tech    TechInfo    `json:"tech"`
-	Paging  Paging      `json:"paging"`
-	Data    [][]UserMsg `json:"data,omitempty"`
+	Success bool      `json:"success"`
+	Tech    TechInfo  `json:"tech"`
+	Paging  Paging    `json:"paging"`
+	Data    []UserMsg `json:"data,omitempty"`
 }
 
-// UserChatInfo represents user chat information
 type UserChatInfo struct {
 	Chat          *ChatInfo  `json:"chat,omitempty"`
 	LastMessageID *int32     `json:"lastMessageId,omitempty"`
@@ -145,7 +132,6 @@ type UserChatInfo struct {
 	IsLeft        bool       `json:"isLeft"`
 }
 
-// UserChatInfoArrayAPIAnswer represents the API response for user chat info
 type UserChatInfoArrayAPIAnswer struct {
 	Success bool           `json:"success"`
 	Tech    TechInfo       `json:"tech"`

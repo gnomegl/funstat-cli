@@ -11,17 +11,14 @@ import (
 )
 
 func main() {
-	// Get API key from environment
 	apiKey := os.Getenv("FUNSTAT_API_KEY")
 	if apiKey == "" {
 		log.Fatal("FUNSTAT_API_KEY environment variable is required")
 	}
 
-	// Create client with optional debug mode
 	c := client.New(apiKey, client.WithDebug(false))
 	ctx := context.Background()
 
-	// Example 1: Resolve usernames (Cost: 0.10 per success)
 	resolvedUsers, err := c.ResolveUsernames(ctx, []string{"durov", "telegram"})
 	if err != nil {
 		log.Printf("Error resolving usernames: %v", err)
@@ -37,7 +34,6 @@ func main() {
 		}
 	}
 
-	// Example 2: Get user stats - minimal (FREE)
 	if len(resolvedUsers.Data) > 0 {
 		userID := resolvedUsers.Data[0].ID
 		statsMin, err := c.GetUserStatsMin(ctx, userID)
@@ -56,7 +52,6 @@ func main() {
 		}
 	}
 
-	// Example 3: Get user groups count (FREE)
 	if len(resolvedUsers.Data) > 0 {
 		userID := resolvedUsers.Data[0].ID
 		count, err := c.GetUserGroupsCount(ctx, userID, true)
@@ -67,7 +62,6 @@ func main() {
 		}
 	}
 
-	// Example 4: Get user messages count (FREE)
 	if len(resolvedUsers.Data) > 0 {
 		userID := resolvedUsers.Data[0].ID
 		count, err := c.GetUserMessagesCount(ctx, userID)
@@ -78,7 +72,6 @@ func main() {
 		}
 	}
 
-	// Example 5: Get users by ID (Cost: 0.10 per success)
 	usersByID, err := c.GetUsersByID(ctx, []int64{1, 777000})
 	if err != nil {
 		log.Printf("Error getting users by ID: %v", err)
