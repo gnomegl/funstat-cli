@@ -116,10 +116,10 @@ type Paging struct {
 }
 
 type UserMsgArrayAPIAnswerPaged struct {
-	Success bool      `json:"success"`
-	Tech    TechInfo  `json:"tech"`
-	Paging  Paging    `json:"paging"`
-	Data    []UserMsg `json:"data,omitempty"`
+	Success bool        `json:"success"`
+	Tech    TechInfo    `json:"tech"`
+	Paging  Paging      `json:"paging"`
+	Data    [][]UserMsg `json:"data,omitempty"`
 }
 
 type UserChatInfo struct {
@@ -136,4 +136,90 @@ type UserChatInfoArrayAPIAnswer struct {
 	Success bool           `json:"success"`
 	Tech    TechInfo       `json:"tech"`
 	Data    []UserChatInfo `json:"data,omitempty"`
+}
+
+// TextSearchGroup represents group info in text search results
+type TextSearchGroup struct {
+	ID        int64   `json:"id"`
+	Title     string  `json:"title"`
+	IsPrivate bool    `json:"isPrivate"`
+	IsChannel bool    `json:"isChannel"`
+	Username  *string `json:"username,omitempty"`
+	Link      *string `json:"link,omitempty"`
+}
+
+// TextSearchResult represents a search result for text search
+type TextSearchResult struct {
+	MessageID int32           `json:"message_id"`
+	UserID    int64           `json:"user_id"`
+	Date      time.Time       `json:"date"`
+	Name      *string         `json:"name,omitempty"`
+	Username  *string         `json:"username,omitempty"`
+	IsActive  bool            `json:"is_active"`
+	Group     TextSearchGroup `json:"group"`
+	Text      string          `json:"text"`
+}
+
+// TextSearchData represents the data object in text search response
+type TextSearchData struct {
+	IsLastPage  bool               `json:"isLastPage"`
+	PageSize    int32              `json:"pageSize"`
+	CurrentPage int32              `json:"currentPage"`
+	TotalPages  int32              `json:"totalPages"`
+	IsSliding   bool               `json:"isSliding"`
+	Total       int32              `json:"total"`
+	Data        []TextSearchResult `json:"data"`
+}
+
+// TextSearchAPIAnswer is the response for text search endpoint
+type TextSearchAPIAnswer struct {
+	Success bool           `json:"success"`
+	Tech    TechInfo       `json:"tech"`
+	Data    TextSearchData `json:"data"`
+}
+
+// CommonGroupsAPIAnswer is the response for common groups endpoint
+type CommonGroupsAPIAnswer struct {
+	Success bool       `json:"success"`
+	Tech    TechInfo   `json:"tech"`
+	Data    []ChatInfo `json:"data,omitempty"`
+}
+
+// CommonGroupsStatUser represents a user with common groups
+type CommonGroupsStatUser struct {
+	UserID       int64   `json:"user_id"`
+	Username     *string `json:"username,omitempty"`
+	FirstName    *string `json:"first_name,omitempty"`
+	LastName     *string `json:"last_name,omitempty"`
+	CommonGroups int32   `json:"common_groups"`
+}
+
+// CommonGroupsStatAPIAnswer is the response for common groups stat endpoint
+type CommonGroupsStatAPIAnswer struct {
+	Success bool                   `json:"success"`
+	Tech    TechInfo               `json:"tech"`
+	Data    []CommonGroupsStatUser `json:"data,omitempty"`
+}
+
+// UsernameUsageResult represents a username usage result
+type UsernameUsageResult struct {
+	// Type: 1=actual user, 2=past user usage, 3=group/channel, 4=mentioned in description
+	Type        int32      `json:"type"`
+	UserID      *int64     `json:"user_id,omitempty"`
+	GroupID     *int64     `json:"group_id,omitempty"`
+	Username    string     `json:"username"`
+	Title       *string    `json:"title,omitempty"`
+	FirstName   *string    `json:"first_name,omitempty"`
+	LastName    *string    `json:"last_name,omitempty"`
+	IsActive    *bool      `json:"is_active,omitempty"`
+	DateFrom    *time.Time `json:"date_from,omitempty"`
+	DateTo      *time.Time `json:"date_to,omitempty"`
+	Description *string    `json:"description,omitempty"`
+}
+
+// UsernameUsageAPIAnswer is the response for username usage endpoint
+type UsernameUsageAPIAnswer struct {
+	Success bool                  `json:"success"`
+	Tech    TechInfo              `json:"tech"`
+	Data    []UsernameUsageResult `json:"data,omitempty"`
 }

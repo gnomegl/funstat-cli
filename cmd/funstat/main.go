@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/funstat/funstat-api/pkg/client"
+	"github.com/gnomegl/funstat-api/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -113,9 +113,23 @@ func init() {
 		RunE:  getUserUsernames,
 	}
 
+	commonGroupsStatCmd := &cobra.Command{
+		Use:   "common-groups-stat [user-id]",
+		Short: "Get users who have common groups with specified user (Cost: 5)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  getUserCommonGroupsStat,
+	}
+
+	usernameUsageCmd := &cobra.Command{
+		Use:   "username-usage [username]",
+		Short: "Search username usage (actual users, past usage, groups, mentions)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  getUsernameUsage,
+	}
+
 	userCmd.AddCommand(resolveCmd, statsCmd, statsMinCmd, getByIDCmd,
 		groupsCmd, groupsCountCmd, messagesCmd, messagesCountCmd,
-		namesCmd, usernamesCmd)
+		namesCmd, usernamesCmd, commonGroupsStatCmd, usernameUsageCmd)
 
 	groupCmd := &cobra.Command{
 		Use:   "group",
@@ -130,9 +144,33 @@ func init() {
 		RunE:  getGroupInfo,
 	}
 
-	groupCmd.AddCommand(groupInfoCmd)
+	commonGroupsCmd := &cobra.Command{
+		Use:   "common [user-ids...]",
+		Short: "Get common groups for specified users (Cost: 0.5)",
+		Args:  cobra.MinimumNArgs(2),
+		RunE:  getCommonGroups,
+	}
 
-	rootCmd.AddCommand(userCmd, groupCmd)
+	groupCmd.AddCommand(groupInfoCmd, commonGroupsCmd)
+
+	textCmd := &cobra.Command{
+		Use:   "text",
+		Short: "Text-related operations",
+		Long:  `Perform operations related to text search.`,
+	}
+
+	textSearchCmd := &cobra.Command{
+		Use:   "search [text]",
+		Short: "Search who and where wrote specified text (Cost: 0.1)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  textSearch,
+	}
+	textSearchCmd.Flags().Int32("page", 1, "Page number")
+	textSearchCmd.Flags().Int32("page-size", 10, "Page size")
+
+	textCmd.AddCommand(textSearchCmd)
+
+	rootCmd.AddCommand(userCmd, groupCmd, textCmd)
 }
 
 func initConfig() {
@@ -384,6 +422,76 @@ func getGroupInfo(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return printJSON(data)
+}
+
+func getUserCommonGroupsStat(cmd *cobra.Command, args []string) error {
+	userID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	c := getClient()
+	ctx := context.Background()
+
+	result, err := c.GetCommonGroupsStat(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	return printJSON(result)
+}
+
+func getUsernameUsage(cmd *cobra.Command, args []string) error {
+	c := getClient()
+	ctx := context.Background()
+
+	result, err := c.GetUsernameUsage(ctx, args[0])
+	if err != nil {
+		return err
+	}
+
+	return printJSON(result)
+}
+
+func textSearch(cmd *cobra.Command, args []string) error {
+	page, _ := cmd.Flags().GetInt32("page")
+	pageSize, _ := cmd.Flags().GetInt32("page-size")
+
+	c := getClient()
+	ctx := context.Background()
+
+	opts := &client.TextSearchOptions{
+		Page:     page,
+		PageSize: pageSize,
+	}
+
+	result, err := c.TextSearch(ctx, args[0], opts)
+	if err != nil {
+		return err
+	}
+
+	return printJSON(result)
+}
+
+func getCommonGroups(cmd *cobra.Command, args []string) error {
+	var userIDs []int64
+	for _, arg := range args {
+		id, err := strconv.ParseInt(arg, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid user ID %s: %w", arg, err)
+		}
+		userIDs = append(userIDs, id)
+	}
+
+	c := getClient()
+	ctx := context.Background()
+
+	result, err := c.GetCommonGroups(ctx, userIDs)
+	if err != nil {
+		return err
+	}
+
+	return printJSON(result)
 }
 
 func printJSON(v interface{}) error {

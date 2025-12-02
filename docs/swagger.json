@@ -884,6 +884,244 @@
           }
         ]
       }
+    },
+    "/api/v1/text/search": {
+      "get": {
+        "tags": [
+          "Text"
+        ],
+        "summary": "Search who and where wrote specified text COST 0.1 (Auth policies: api_user)",
+        "parameters": [
+          {
+            "name": "text",
+            "in": "query",
+            "description": "Text to search for",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TextSearchAPIAnswer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [
+              "api_user"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/groups/common_groups": {
+      "get": {
+        "tags": [
+          "Groups"
+        ],
+        "summary": "Return common groups for specified users (all requested users in these groups) COST 0.5 (Auth policies: api_user)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "description": "array of user IDs",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonGroupsAPIAnswer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [
+              "api_user"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}/common_groups_stat": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Return users who have common groups with specified user COST 5 (Auth policies: api_user)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "user ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonGroupsStatAPIAnswer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [
+              "api_user"
+            ]
+          }
+        ]
+      }
+    },
+    "/api/v1/users/username_usage": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Search username usage the same way as the bot (Auth policies: api_user)",
+        "description": "Returns: 1=actual users, 2=past usage by users, 3=group/channel actual usage, 4=mentions in group/channel descriptions",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "query",
+            "description": "Username to search (with or without @)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsernameUsageAPIAnswer"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppProblem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        },
+        "security": [
+          {
+            "Bearer": [
+              "api_user"
+            ]
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -1536,6 +1774,223 @@
           },
           "is_paid": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TextSearchResult": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "first_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "group_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "group_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "message_id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "text": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TextSearchAPIAnswer": {
+        "required": [
+          "success",
+          "tech"
+        ],
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "tech": {
+            "$ref": "#/components/schemas/tech_info"
+          },
+          "paging": {
+            "$ref": "#/components/schemas/paging"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TextSearchResult"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CommonGroupsAPIAnswer": {
+        "required": [
+          "success",
+          "tech"
+        ],
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "tech": {
+            "$ref": "#/components/schemas/tech_info"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/chat_inf"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CommonGroupsStatUser": {
+        "type": "object",
+        "properties": {
+          "user_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "username": {
+            "type": "string",
+            "nullable": true
+          },
+          "first_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "common_groups": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CommonGroupsStatAPIAnswer": {
+        "required": [
+          "success",
+          "tech"
+        ],
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "tech": {
+            "$ref": "#/components/schemas/tech_info"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommonGroupsStatUser"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UsernameUsageResult": {
+        "type": "object",
+        "description": "Type: 1=actual user, 2=past usage by user, 3=group/channel actual usage, 4=mention in group/channel description",
+        "properties": {
+          "type": {
+            "type": "integer",
+            "format": "int32",
+            "description": "1=actual user, 2=past usage by user, 3=group/channel, 4=mentioned in description"
+          },
+          "user_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "group_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "username": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true
+          },
+          "first_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "is_active": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "date_from": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "date_to": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UsernameUsageAPIAnswer": {
+        "required": [
+          "success",
+          "tech"
+        ],
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "tech": {
+            "$ref": "#/components/schemas/tech_info"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UsernameUsageResult"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false

@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/funstat/funstat-api/pkg/client"
+	"github.com/gnomegl/funstat-api/pkg/client"
 )
 
 func main() {

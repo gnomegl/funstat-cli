@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/funstat/funstat-api/pkg/client"
+	"github.com/gnomegl/funstat-api/pkg/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

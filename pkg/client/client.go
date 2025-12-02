@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -43,10 +42,8 @@ func WithDebug(debug bool) Option {
 }
 
 func New(apiKey string, opts ...Option) *Client {
-	fmt.Fprintln(os.Stderr, "Warning: Using insecure TLS verification")
-
 	c := &Client{
-		baseURL: "http://api.funstat.info",
+		baseURL: "https://api.funstat.info",
 		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -324,6 +321,97 @@ func (c *Client) GetUserUsernames(ctx context.Context, userID int64) (*UserChatI
 	}
 
 	var result UserChatInfoArrayAPIAnswer
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// TextSearchOptions contains options for text search
+type TextSearchOptions struct {
+	Page     int32
+	PageSize int32
+}
+
+// TextSearch searches for who and where wrote specified text (COST: 0.1 per request)
+func (c *Client) TextSearch(ctx context.Context, text string, opts *TextSearchOptions) (*TextSearchAPIAnswer, error) {
+	query := url.Values{}
+	query.Set("input", text)
+
+	if opts != nil {
+		if opts.Page > 0 {
+			query.Set("page", strconv.Itoa(int(opts.Page)))
+		}
+		if opts.PageSize > 0 {
+			query.Set("pageSize", strconv.Itoa(int(opts.PageSize)))
+		}
+	}
+
+	respBody, err := c.doRequest(ctx, http.MethodGet, "/api/v1/text/search", query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result TextSearchAPIAnswer
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetCommonGroups returns common groups for specified users (COST: 0.5 per request)
+// All requested users must be members of the returned groups
+func (c *Client) GetCommonGroups(ctx context.Context, userIDs []int64) (*CommonGroupsAPIAnswer, error) {
+	query := url.Values{}
+	for _, id := range userIDs {
+		query.Add("id", strconv.FormatInt(id, 10))
+	}
+
+	respBody, err := c.doRequest(ctx, http.MethodGet, "/api/v1/groups/common_groups", query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result CommonGroupsAPIAnswer
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetCommonGroupsStat returns users who have common groups with specified user (COST: 5)
+func (c *Client) GetCommonGroupsStat(ctx context.Context, userID int64) (*CommonGroupsStatAPIAnswer, error) {
+	path := fmt.Sprintf("/api/v1/users/%d/common_groups_stat", userID)
+
+	respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result CommonGroupsStatAPIAnswer
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetUsernameUsage searches username usage the same way as the bot (no cost specified)
+// Returns: 1=actual users, 2=past usage by users, 3=group/channel actual usage, 4=mentions in group/channel descriptions
+func (c *Client) GetUsernameUsage(ctx context.Context, username string) (*UsernameUsageAPIAnswer, error) {
+	query := url.Values{}
+	username = strings.TrimPrefix(username, "@")
+	query.Set("username", username)
+
+	respBody, err := c.doRequest(ctx, http.MethodGet, "/api/v1/users/username_usage", query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result UsernameUsageAPIAnswer
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
