@@ -123,7 +123,7 @@ type UserMsgArrayAPIAnswerPaged struct {
 }
 
 type UserChatInfo struct {
-	Chat          *ChatInfo  `json:"chat,omitempty"`
+	Chat          *ChatInfo  `json:"chat"`
 	LastMessageID *int32     `json:"lastMessageId,omitempty"`
 	MessagesCount *int32     `json:"messagesCount,omitempty"`
 	LastMessage   *time.Time `json:"lastMessage,omitempty"`
@@ -136,6 +136,17 @@ type UserChatInfoArrayAPIAnswer struct {
 	Success bool           `json:"success"`
 	Tech    TechInfo       `json:"tech"`
 	Data    []UserChatInfo `json:"data,omitempty"`
+}
+
+type UsernameHistoryItem struct {
+	Name     string    `json:"name"`
+	DateTime time.Time `json:"date_time"`
+}
+
+type UsernameHistoryAPIAnswer struct {
+	Success bool                  `json:"success"`
+	Tech    TechInfo              `json:"tech"`
+	Data    []UsernameHistoryItem `json:"data,omitempty"`
 }
 
 // TextSearchGroup represents group info in text search results

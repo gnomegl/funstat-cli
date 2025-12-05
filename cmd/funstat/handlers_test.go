@@ -198,8 +198,8 @@ func TestGetUserUsernamesHandler(t *testing.T) {
 		"success": true,
 		"tech": {"request_cost": 3, "current_ballance": 97, "request_duration": "50ms"},
 		"data": [
-			{"firstMessage": "2023-01-01T00:00:00Z"},
-			{"firstMessage": "2023-06-02T00:00:00Z"}
+			{"name": "oldusername1", "date_time": "2023-01-01T00:00:00Z"},
+			{"name": "oldusername2", "date_time": "2023-06-02T00:00:00Z"}
 		]
 	}`
 
@@ -210,6 +210,7 @@ func TestGetUserUsernamesHandler(t *testing.T) {
 	result, err := c.GetUserUsernames(ctx, 123456)
 	require.NoError(t, err)
 	assert.Len(t, result.Data, 2)
+	assert.Equal(t, "oldusername1", result.Data[0].Name)
 }
 
 func TestGetGroupHandler(t *testing.T) {

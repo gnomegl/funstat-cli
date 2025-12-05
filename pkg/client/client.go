@@ -312,7 +312,7 @@ func (c *Client) GetUserNames(ctx context.Context, userID int64) (*UserChatInfoA
 	return &result, nil
 }
 
-func (c *Client) GetUserUsernames(ctx context.Context, userID int64) (*UserChatInfoArrayAPIAnswer, error) {
+func (c *Client) GetUserUsernames(ctx context.Context, userID int64) (*UsernameHistoryAPIAnswer, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/usernames", userID)
 
 	respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
@@ -320,7 +320,7 @@ func (c *Client) GetUserUsernames(ctx context.Context, userID int64) (*UserChatI
 		return nil, err
 	}
 
-	var result UserChatInfoArrayAPIAnswer
+	var result UsernameHistoryAPIAnswer
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}

@@ -25,7 +25,7 @@ func TestNew(t *testing.T) {
 			apiKey: "test-key",
 			want: func(c *Client) bool {
 				return c.apiKey == "test-key" &&
-					c.baseURL == "http://api.funstat.info" &&
+					c.baseURL == "https://api.funstat.info" &&
 					c.httpClient.Timeout == 30*time.Second
 			},
 		},
@@ -676,7 +676,7 @@ func TestGetUserUsernames(t *testing.T) {
 		response   string
 		statusCode int
 		wantErr    bool
-		validate   func(*testing.T, *UserChatInfoArrayAPIAnswer)
+		validate   func(*testing.T, *UsernameHistoryAPIAnswer)
 	}{
 		{
 			name:   "usernames history success",
@@ -685,16 +685,18 @@ func TestGetUserUsernames(t *testing.T) {
 				"success": true,
 				"tech": {"request_cost": 3, "current_ballance": 97, "request_duration": "50ms"},
 				"data": [
-					{"firstMessage": "2023-01-01T00:00:00Z", "lastMessage": "2023-06-01T00:00:00Z"},
-					{"firstMessage": "2023-06-02T00:00:00Z", "lastMessage": "2024-01-01T00:00:00Z"}
+					{"name": "oldusername1", "date_time": "2023-01-01T00:00:00Z"},
+					{"name": "oldusername2", "date_time": "2023-06-02T00:00:00Z"}
 				]
 			}`,
 			statusCode: 200,
 			wantErr:    false,
-			validate: func(t *testing.T, result *UserChatInfoArrayAPIAnswer) {
+			validate: func(t *testing.T, result *UsernameHistoryAPIAnswer) {
 				require.NotNil(t, result)
 				assert.True(t, result.Success)
 				assert.Len(t, result.Data, 2)
+				assert.Equal(t, "oldusername1", result.Data[0].Name)
+				assert.Equal(t, "oldusername2", result.Data[1].Name)
 			},
 		},
 	}
