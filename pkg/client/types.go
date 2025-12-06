@@ -116,10 +116,10 @@ type Paging struct {
 }
 
 type UserMsgArrayAPIAnswerPaged struct {
-	Success bool        `json:"success"`
-	Tech    TechInfo    `json:"tech"`
-	Paging  Paging      `json:"paging"`
-	Data    [][]UserMsg `json:"data,omitempty"`
+	Success bool      `json:"success"`
+	Tech    TechInfo  `json:"tech"`
+	Paging  Paging    `json:"paging"`
+	Data    []UserMsg `json:"data,omitempty"`
 }
 
 type UserChatInfo struct {
