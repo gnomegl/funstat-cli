@@ -14,14 +14,14 @@ DESCRIPTION
 
 INSTALLATION
      Library Integration:
-       go get github.com/funstat/funstat-api/pkg/client
+       go get github.com/funstat/funstat-cli/pkg/client
 
      Command-line Tool:
-       go install github.com/funstat/funstat-api/cmd/funstat@latest
+       go install github.com/funstat/funstat-cli/cmd/funstat@latest
 
      Build from Source:
-       git clone https://github.com/funstat/funstat-api.git
-       cd funstat-api
+       git clone https://github.com/funstat/funstat-cli.git
+       cd funstat-cli
        make
        # or: go build -o funstat ./cmd/funstat
 
@@ -37,7 +37,7 @@ LIBRARY INTERFACE
      The client library provides a clean programmatic interface:
 
        #include equivalent Go import:
-       import "github.com/funstat/funstat-api/pkg/client"
+       import "github.com/funstat/funstat-cli/pkg/client"
 
      Basic Usage Pattern:
        c := client.New("api-key")                    // Constructor

@@ -7,7 +7,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/gnomegl/funstat-api/pkg/client"
+	"github.com/gnomegl/funstat-cli/pkg/client"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

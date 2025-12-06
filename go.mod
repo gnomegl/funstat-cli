@@ -1,4 +1,4 @@
-module github.com/gnomegl/funstat-api
+module github.com/gnomegl/funstat-cli
 
 go 1.21
 
