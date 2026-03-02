@@ -127,9 +127,33 @@ func init() {
 		RunE:  getUsernameUsage,
 	}
 
+	reputationCmd := &cobra.Command{
+		Use:   "reputation [user-id]",
+		Short: "Get user reputation info (FREE)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  getUserReputation,
+	}
+
+	stickersCmd := &cobra.Command{
+		Use:   "stickers [user-id]",
+		Short: "Get sticker packs created by user (Cost: 1 if found)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  getUserStickers,
+	}
+
+	giftsRelationCmd := &cobra.Command{
+		Use:   "gifts-relation [user-id]",
+		Short: "Get gift relations for user (Cost: 5 if >5 relations)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  getUserGiftsRelation,
+	}
+	giftsRelationCmd.Flags().Int32("page", 1, "Page number")
+	giftsRelationCmd.Flags().Int32("page-size", 20, "Page size")
+
 	userCmd.AddCommand(resolveCmd, statsCmd, statsMinCmd, getByIDCmd,
 		groupsCmd, groupsCountCmd, messagesCmd, messagesCountCmd,
-		namesCmd, usernamesCmd, commonGroupsStatCmd, usernameUsageCmd)
+		namesCmd, usernamesCmd, commonGroupsStatCmd, usernameUsageCmd,
+		reputationCmd, stickersCmd, giftsRelationCmd)
 
 	groupCmd := &cobra.Command{
 		Use:   "group",
@@ -151,7 +175,14 @@ func init() {
 		RunE:  getCommonGroups,
 	}
 
-	groupCmd.AddCommand(groupInfoCmd, commonGroupsCmd)
+	groupMembersCmd := &cobra.Command{
+		Use:   "members [group-id]",
+		Short: "Get group members (Cost: 15)",
+		Args:  cobra.ExactArgs(1),
+		RunE:  getGroupMembers,
+	}
+
+	groupCmd.AddCommand(groupInfoCmd, commonGroupsCmd, groupMembersCmd)
 
 	textCmd := &cobra.Command{
 		Use:   "text",
@@ -170,7 +201,20 @@ func init() {
 
 	textCmd.AddCommand(textSearchCmd)
 
-	rootCmd.AddCommand(userCmd, groupCmd, textCmd)
+	botCmd := &cobra.Command{
+		Use:   "bot",
+		Short: "Bot-related operations",
+	}
+
+	botRandomCmd := &cobra.Command{
+		Use:   "random",
+		Short: "Get random bot result",
+		RunE:  getBotRandom,
+	}
+
+	botCmd.AddCommand(botRandomCmd)
+
+	rootCmd.AddCommand(userCmd, groupCmd, textCmd, botCmd)
 }
 
 func initConfig() {
@@ -195,18 +239,29 @@ func initConfig() {
 		apiKey = viper.GetString("API_KEY")
 	}
 
+}
+
+func getClient() *client.Client {
 	if apiKey == "" {
 		fmt.Fprintln(os.Stderr, "Error: API key is required. Set FUNSTAT_API_KEY environment variable or use --api-key flag")
 		os.Exit(1)
 	}
+	if debug {
+		return client.New(apiKey, client.WithDebug(true))
+	}
+	return client.New(apiKey)
 }
 
-func getClient() *client.Client {
-	opts := []client.Option{}
-	if debug {
-		opts = append(opts, client.WithDebug(true))
+func parseIDs(args []string) ([]int64, error) {
+	ids := make([]int64, 0, len(args))
+	for _, arg := range args {
+		id, err := strconv.ParseInt(arg, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid user ID %s: %w", arg, err)
+		}
+		ids = append(ids, id)
 	}
-	return client.New(apiKey, opts...)
+	return ids, nil
 }
 
 func resolveUsernames(cmd *cobra.Command, args []string) error {
@@ -256,13 +311,9 @@ func getUserStatsMin(cmd *cobra.Command, args []string) error {
 }
 
 func getUsersByID(cmd *cobra.Command, args []string) error {
-	var userIDs []int64
-	for _, arg := range args {
-		id, err := strconv.ParseInt(arg, 10, 64)
-		if err != nil {
-			return fmt.Errorf("invalid user ID %s: %w", arg, err)
-		}
-		userIDs = append(userIDs, id)
+	userIDs, err := parseIDs(args)
+	if err != nil {
+		return err
 	}
 
 	c := getClient()
@@ -460,7 +511,7 @@ func textSearch(cmd *cobra.Command, args []string) error {
 	c := getClient()
 	ctx := context.Background()
 
-	opts := &client.TextSearchOptions{
+	opts := client.TextSearchOptions{
 		Page:     page,
 		PageSize: pageSize,
 	}
@@ -474,13 +525,9 @@ func textSearch(cmd *cobra.Command, args []string) error {
 }
 
 func getCommonGroups(cmd *cobra.Command, args []string) error {
-	var userIDs []int64
-	for _, arg := range args {
-		id, err := strconv.ParseInt(arg, 10, 64)
-		if err != nil {
-			return fmt.Errorf("invalid user ID %s: %w", arg, err)
-		}
-		userIDs = append(userIDs, id)
+	userIDs, err := parseIDs(args)
+	if err != nil {
+		return err
 	}
 
 	c := getClient()
@@ -492,6 +539,102 @@ func getCommonGroups(cmd *cobra.Command, args []string) error {
 	}
 
 	return printJSON(result)
+}
+
+func getUserReputation(cmd *cobra.Command, args []string) error {
+	userID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	c := getClient()
+	ctx := context.Background()
+
+	result, err := c.GetUserReputation(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	var data interface{}
+	if err := json.Unmarshal(result, &data); err != nil {
+		return err
+	}
+	return printJSON(data)
+}
+
+func getUserStickers(cmd *cobra.Command, args []string) error {
+	userID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	c := getClient()
+	ctx := context.Background()
+
+	result, err := c.GetUserStickers(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	return printJSON(result)
+}
+
+func getUserGiftsRelation(cmd *cobra.Command, args []string) error {
+	userID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid user ID: %w", err)
+	}
+
+	page, _ := cmd.Flags().GetInt32("page")
+	pageSize, _ := cmd.Flags().GetInt32("page-size")
+
+	c := getClient()
+	ctx := context.Background()
+
+	opts := client.GiftsRelationOptions{
+		Page:     page,
+		PageSize: pageSize,
+	}
+
+	result, err := c.GetGiftsRelation(ctx, userID, opts)
+	if err != nil {
+		return err
+	}
+
+	return printJSON(result)
+}
+
+func getGroupMembers(cmd *cobra.Command, args []string) error {
+	groupID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid group ID: %w", err)
+	}
+
+	c := getClient()
+	ctx := context.Background()
+
+	result, err := c.GetGroupMembers(ctx, groupID)
+	if err != nil {
+		return err
+	}
+
+	return printJSON(result)
+}
+
+func getBotRandom(cmd *cobra.Command, args []string) error {
+	c := getClient()
+	ctx := context.Background()
+
+	result, err := c.GetBotRandom(ctx)
+	if err != nil {
+		return err
+	}
+
+	var data interface{}
+	if err := json.Unmarshal(result, &data); err != nil {
+		return err
+	}
+	return printJSON(data)
 }
 
 func printJSON(v interface{}) error {

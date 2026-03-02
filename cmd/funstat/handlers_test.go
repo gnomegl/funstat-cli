@@ -141,14 +141,14 @@ func TestGetUserMessagesHandler(t *testing.T) {
 		"success": true,
 		"tech": {"request_cost": 10, "current_ballance": 90, "request_duration": "200ms"},
 		"paging": {"total": 100, "currentPage": 1, "pageSize": 10, "totalPages": 10},
-		"data": [[
+		"data": [
 			{
 				"date": "2024-01-01T12:00:00Z",
 				"messageId": 1,
 				"text": "Hello",
 				"group": {"id": 111, "title": "Test", "isPrivate": false}
 			}
-		]]
+		]
 	}`
 
 	server, c := setupTestServer(t, 200, response)

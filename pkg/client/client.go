@@ -15,7 +15,7 @@ import (
 )
 
 type Client struct {
-	baseURL    string
+	baseURL    *url.URL
 	apiKey     string
 	httpClient *http.Client
 	debug      bool
@@ -31,7 +31,11 @@ func WithHTTPClient(httpClient *http.Client) Option {
 
 func WithBaseURL(baseURL string) Option {
 	return func(c *Client) {
-		c.baseURL = baseURL
+		u, err := url.Parse(baseURL)
+		if err != nil {
+			panic(fmt.Sprintf("invalid base URL: %s", err))
+		}
+		c.baseURL = u
 	}
 }
 
@@ -42,8 +46,9 @@ func WithDebug(debug bool) Option {
 }
 
 func New(apiKey string, opts ...Option) *Client {
+	defaultURL, _ := url.Parse("http://telelog.org")
 	c := &Client{
-		baseURL: "https://api.funstat.info",
+		baseURL: defaultURL,
 		apiKey:  apiKey,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -61,11 +66,7 @@ func New(apiKey string, opts ...Option) *Client {
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, query url.Values, body interface{}) ([]byte, error) {
-	u, err := url.Parse(c.baseURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid base URL: %w", err)
-	}
-
+	u := *c.baseURL
 	u.Path = path
 	if query != nil {
 		u.RawQuery = query.Encode()
@@ -335,17 +336,15 @@ type TextSearchOptions struct {
 }
 
 // TextSearch searches for who and where wrote specified text (COST: 0.1 per request)
-func (c *Client) TextSearch(ctx context.Context, text string, opts *TextSearchOptions) (*TextSearchAPIAnswer, error) {
+func (c *Client) TextSearch(ctx context.Context, text string, opts TextSearchOptions) (*TextSearchAPIAnswer, error) {
 	query := url.Values{}
 	query.Set("input", text)
 
-	if opts != nil {
-		if opts.Page > 0 {
-			query.Set("page", strconv.Itoa(int(opts.Page)))
-		}
-		if opts.PageSize > 0 {
-			query.Set("pageSize", strconv.Itoa(int(opts.PageSize)))
-		}
+	if opts.Page > 0 {
+		query.Set("page", strconv.Itoa(int(opts.Page)))
+	}
+	if opts.PageSize > 0 {
+		query.Set("pageSize", strconv.Itoa(int(opts.PageSize)))
 	}
 
 	respBody, err := c.doRequest(ctx, http.MethodGet, "/api/v1/text/search", query, nil)
@@ -399,8 +398,7 @@ func (c *Client) GetCommonGroupsStat(ctx context.Context, userID int64) (*Common
 	return &result, nil
 }
 
-// GetUsernameUsage searches username usage the same way as the bot (no cost specified)
-// Returns: 1=actual users, 2=past usage by users, 3=group/channel actual usage, 4=mentions in group/channel descriptions
+// GetUsernameUsage searches username usage (COST: 0.1 per request)
 func (c *Client) GetUsernameUsage(ctx context.Context, username string) (*UsernameUsageAPIAnswer, error) {
 	query := url.Values{}
 	username = strings.TrimPrefix(username, "@")
@@ -417,4 +415,69 @@ func (c *Client) GetUsernameUsage(ctx context.Context, username string) (*Userna
 	}
 
 	return &result, nil
+}
+
+// GetGroupMembers returns group members (COST: 15 per request)
+func (c *Client) GetGroupMembers(ctx context.Context, groupID int64) (*GroupMemberArrayAPIAnswer, error) {
+	path := fmt.Sprintf("/api/v1/groups/%d/members", groupID)
+
+	respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result GroupMemberArrayAPIAnswer
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GiftsRelationOptions contains pagination options for gifts relation
+type GiftsRelationOptions struct {
+	Page     int32
+	PageSize int32
+}
+
+// GetGiftsRelation returns gift relations for a user (COST: 5 if >5 relations found)
+func (c *Client) GetGiftsRelation(ctx context.Context, userID int64, opts GiftsRelationOptions) (*GiftRelationArrayAPIAnswer, error) {
+	path := fmt.Sprintf("/api/v1/users/%d/gifts_relation", userID)
+	query := url.Values{}
+	query.Set("page", strconv.Itoa(int(opts.Page)))
+	query.Set("pageSize", strconv.Itoa(int(opts.PageSize)))
+
+	respBody, err := c.doRequest(ctx, http.MethodGet, path, query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result GiftRelationArrayAPIAnswer
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetUserStickers returns sticker packs created by a user (COST: 1 if found)
+func (c *Client) GetUserStickers(ctx context.Context, userID int64) (*StickerArrayAPIAnswer, error) {
+	path := fmt.Sprintf("/api/v1/users/%d/stickers", userID)
+
+	respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var result StickerArrayAPIAnswer
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetBotRandom returns a random bot result
+func (c *Client) GetBotRandom(ctx context.Context) ([]byte, error) {
+	return c.doRequest(ctx, http.MethodGet, "/api/v1/bot/random", nil, nil)
 }

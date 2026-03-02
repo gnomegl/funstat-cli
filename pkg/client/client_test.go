@@ -25,7 +25,7 @@ func TestNew(t *testing.T) {
 			apiKey: "test-key",
 			want: func(c *Client) bool {
 				return c.apiKey == "test-key" &&
-					c.baseURL == "https://api.funstat.info" &&
+					c.baseURL.String() == "http://telelog.org" &&
 					c.httpClient.Timeout == 30*time.Second
 			},
 		},
@@ -34,7 +34,7 @@ func TestNew(t *testing.T) {
 			apiKey: "test-key",
 			opts:   []Option{WithBaseURL("https://custom.api")},
 			want: func(c *Client) bool {
-				return c.baseURL == "https://custom.api"
+				return c.baseURL.String() == "https://custom.api"
 			},
 		},
 		{
@@ -492,14 +492,14 @@ func TestGetUserMessages(t *testing.T) {
 				"success": true,
 				"tech": {"request_cost": 10, "current_ballance": 90, "request_duration": "200ms"},
 				"paging": {"total": 100, "currentPage": 1, "pageSize": 10, "totalPages": 10},
-				"data": [[
+				"data": [
 					{
 						"date": "2024-01-01T12:00:00Z",
 						"messageId": 1,
 						"text": "Hello",
 						"group": {"id": 111, "title": "Test", "isPrivate": false}
 					}
-				]]
+				]
 			}`,
 			statusCode: 200,
 			wantErr:    false,
