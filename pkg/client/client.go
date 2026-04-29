@@ -113,7 +113,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, query url.V
 
 	if resp.StatusCode >= 400 {
 		var problem AppProblem
-		if err := json.Unmarshal(respBody, &problem); err == nil {
+		if err := json.Unmarshal(respBody, &problem); err == nil && (problem.Title != nil || problem.Detail != nil) {
 			return nil, fmt.Errorf("API error: %s - %s",
 				strPtr(problem.Title), strPtr(problem.Detail))
 		}
@@ -297,7 +297,7 @@ func (c *Client) GetUserGroups(ctx context.Context, userID int64) (*UserChatInfo
 	return &result, nil
 }
 
-func (c *Client) GetUserNames(ctx context.Context, userID int64) (*UserChatInfoArrayAPIAnswer, error) {
+func (c *Client) GetUserNames(ctx context.Context, userID int64) (*UsernameHistoryAPIAnswer, error) {
 	path := fmt.Sprintf("/api/v1/users/%d/names", userID)
 
 	respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
@@ -305,7 +305,7 @@ func (c *Client) GetUserNames(ctx context.Context, userID int64) (*UserChatInfoA
 		return nil, err
 	}
 
-	var result UserChatInfoArrayAPIAnswer
+	var result UsernameHistoryAPIAnswer
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
@@ -338,7 +338,7 @@ type TextSearchOptions struct {
 // TextSearch searches for who and where wrote specified text (COST: 0.1 per request)
 func (c *Client) TextSearch(ctx context.Context, text string, opts TextSearchOptions) (*TextSearchAPIAnswer, error) {
 	query := url.Values{}
-	query.Set("input", text)
+	query.Set("text", text)
 
 	if opts.Page > 0 {
 		query.Set("page", strconv.Itoa(int(opts.Page)))

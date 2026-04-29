@@ -14,13 +14,13 @@ DESCRIPTION
 
 INSTALLATION
      Library Integration:
-       go get github.com/funstat/funstat-cli/pkg/client
+       go get github.com/gnomegl/funstat-cli/pkg/client
 
      Command-line Tool:
-       go install github.com/funstat/funstat-cli/cmd/funstat@latest
+       go install github.com/gnomegl/funstat-cli/cmd/funstat@latest
 
      Build from Source:
-       git clone https://github.com/funstat/funstat-cli.git
+       git clone https://github.com/gnomegl/funstat-cli.git
        cd funstat-cli
        make
        # or: go build -o funstat ./cmd/funstat
@@ -36,13 +36,12 @@ CONFIGURATION
 LIBRARY INTERFACE
      The client library provides a clean programmatic interface:
 
-       #include equivalent Go import:
-       import "github.com/funstat/funstat-cli/pkg/client"
+       import "github.com/gnomegl/funstat-cli/pkg/client"
 
      Basic Usage Pattern:
        c := client.New("api-key")                    // Constructor
        ctx := context.Background()                   // Context setup
-       result, err := c.ResolveUsernames(ctx, usernames)  // API call
+       result, err := c.ResolveUsernames(ctx, names) // API call
 
      Error Handling:
        All library functions return (result, error) pairs following
@@ -50,13 +49,15 @@ LIBRARY INTERFACE
 
      Optional Features:
        Debug mode: client.WithDebug(true)
-       Custom HTTP client configuration available
+       Custom HTTP client: client.WithHTTPClient(httpClient)
+       Custom base URL: client.WithBaseURL(url)
 
 COMMAND-LINE INTERFACE
      The CLI follows UNIX conventions with hierarchical subcommands:
 
      Global Options:
        --api-key=KEY     API authentication key
+       --config=FILE     Config file (default is $HOME/.funstat.yaml)
        --debug           Enable verbose debugging output
 
      User Operations:
@@ -80,36 +81,74 @@ COMMAND-LINE INTERFACE
 
        funstat user messages USERID [--page=N] [--page-size=N]
                                     [--group-id=ID] [--text-contains=TEXT]
+                                    [--media-code=CODE]
          Retrieve user messages (Cost: 10.00 per user on success)
 
        funstat user messages-count USERID
          Count user messages (Cost: FREE)
 
        funstat user names USERID
-         User display name history (Cost: 3.00)
+         User display name (firstname + lastname) history (Cost: 3.00)
 
        funstat user usernames USERID
-         Username history (Cost: 3.00)
+         @username history (Cost: 3.00)
+
+       funstat user common-groups-stat USERID
+         Users who share groups with specified user (Cost: 5.00)
+
+       funstat user username-usage USERNAME
+         Search username usage: actual users, past usage, groups,
+         mentions in group descriptions (Cost: 0.10)
+
+       funstat user reputation USERID
+         User reputation info (Cost: FREE)
+
+       funstat user stickers USERID
+         Sticker packs created by user (Cost: 1.00 if found)
+
+       funstat user gifts-relation USERID [--page=N] [--page-size=N]
+         Gift relations for user (Cost: 5.00 if >5 relations)
 
      Group Operations:
        funstat group info GROUPID
          Group information (Cost: 0.01)
+
+       funstat group common USERID USERID [USERID...]
+         Common groups for specified users (Cost: 0.50)
+
+       funstat group members GROUPID
+         Group members list (Cost: 15.00)
+
+     Text Operations:
+       funstat text search TEXT [--page=N] [--page-size=N]
+         Search who and where wrote specified text (Cost: 0.10)
+
+     Bot Operations:
+       funstat bot random
+         Get a random bot result
 
 API COST SCHEDULE
      Operation                 Cost (Credits)
      ----------------------------------------
      User Reputation           0.00 (FREE)
      User Stats (Minimal)      0.00 (FREE)
-     User Stats (Full)         1.00
+     User Groups Count         0.00 (FREE)
+     User Messages Count       0.00 (FREE)
+     Group Info                0.01
      Resolve Usernames         0.10 per success
      Get Users by ID           0.10 per success
-     User Groups               5.00
-     User Groups Count         0.00 (FREE)
-     User Messages             10.00 per user
-     User Messages Count       0.00 (FREE)
+     Text Search               0.10
+     Username Usage             0.10
+     Common Groups             0.50
+     User Stats (Full)         1.00
+     User Stickers             1.00 if found
      User Names History        3.00
      User Usernames History    3.00
-     Group Info                0.01
+     User Groups               5.00
+     Common Groups Stat        5.00
+     Gifts Relation            5.00 if >5 relations
+     User Messages             10.00 per user
+     Group Members             15.00
 
 DEBUGGING
      Enable debug mode for detailed request/response logging:
@@ -127,7 +166,7 @@ ERROR HANDLING
      Error categories include:
        - Network connectivity issues
        - Authentication failures
-       - API-specific errors
+       - API-specific errors (returned as AppProblem)
        - Input validation errors
 
 RETURN VALUES
@@ -138,11 +177,26 @@ ENVIRONMENT
      FUNSTAT_API_KEY    Default API authentication key
 
 FILES
-     No configuration files are used. All settings via environment or flags.
+     $HOME/.funstat.yaml    Optional configuration file
 
 EXAMPLES
      Basic username resolution:
        funstat user resolve alice bob @charlie
+
+     Full user statistics:
+       funstat user stats 123456789
+
+     Name history for a user:
+       funstat user names 123456789
+
+     Search for text across all messages:
+       funstat text search "hello world" --page=1 --page-size=20
+
+     Find common groups between users:
+       funstat group common 111 222 333
+
+     Get group member list:
+       funstat group members 123456789
 
      Programmatic usage:
        c := client.New(os.Getenv("FUNSTAT_API_KEY"))

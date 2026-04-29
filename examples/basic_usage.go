@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -92,7 +91,4 @@ func strPtr(s *string) string {
 	return *s
 }
 
-func printJSON(v interface{}) {
-	data, _ := json.MarshalIndent(v, "", "  ")
-	fmt.Println(string(data))
-}
+

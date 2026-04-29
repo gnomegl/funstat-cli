@@ -179,8 +179,8 @@ func TestGetUserNamesHandler(t *testing.T) {
 		"success": true,
 		"tech": {"request_cost": 3, "current_ballance": 97, "request_duration": "50ms"},
 		"data": [
-			{"firstMessage": "2023-01-01T00:00:00Z"},
-			{"firstMessage": "2023-06-02T00:00:00Z"}
+			{"name": "John Doe", "date_time": "2023-01-01T00:00:00Z"},
+			{"name": "John Smith", "date_time": "2023-06-02T00:00:00Z"}
 		]
 	}`
 
@@ -191,6 +191,8 @@ func TestGetUserNamesHandler(t *testing.T) {
 	result, err := c.GetUserNames(ctx, 123456)
 	require.NoError(t, err)
 	assert.Len(t, result.Data, 2)
+	assert.Equal(t, "John Doe", result.Data[0].Name)
+	assert.Equal(t, "John Smith", result.Data[1].Name)
 }
 
 func TestGetUserUsernamesHandler(t *testing.T) {
@@ -245,6 +247,185 @@ func TestCobraCommandStructure(t *testing.T) {
 			assert.Equal(t, tt.wantUse, tt.cmd.Use)
 		})
 	}
+}
+
+func TestGetCommonGroupsStatHandler(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 5, "current_ballance": 95, "request_duration": "80ms"},
+		"data": [
+			{"user_id": 222, "common_groups": 3, "first_name": "Alice", "is_user_active": true}
+		]
+	}`
+
+	server, c := setupTestServer(t, 200, response)
+	defer server.Close()
+
+	ctx := context.Background()
+	result, err := c.GetCommonGroupsStat(ctx, 111)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 1)
+	assert.Equal(t, int32(3), result.Data[0].CommonGroups)
+}
+
+func TestGetUsernameUsageHandler(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 0.1, "current_ballance": 99.9, "request_duration": "20ms"},
+		"data": {
+			"actualUsers": [{"id": 111, "username": "testuser", "is_active": true, "is_bot": false}],
+			"usageByUsersInThePast": [],
+			"actualGroupsOrChannels": [],
+			"mentionByChannelOrGroupDesc": []
+		}
+	}`
+
+	server, c := setupTestServer(t, 200, response)
+	defer server.Close()
+
+	ctx := context.Background()
+	result, err := c.GetUsernameUsage(ctx, "testuser")
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data.ActualUsers, 1)
+}
+
+func TestTextSearchHandler(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 0.1, "current_ballance": 99.9, "request_duration": "30ms"},
+		"data": {
+			"total": 1,
+			"data": [{"message_id": 100, "user_id": 111, "date": "2024-01-01T12:00:00Z", "text": "hello", "is_active": true, "group": {"id": 222, "title": "Test", "isPrivate": false, "isChannel": false}}],
+			"isLastPage": true,
+			"pageSize": 10,
+			"currentPage": 1,
+			"totalPages": 1,
+			"isSliding": false
+		}
+	}`
+
+	server, c := setupTestServer(t, 200, response)
+	defer server.Close()
+
+	ctx := context.Background()
+	opts := client.TextSearchOptions{Page: 1, PageSize: 10}
+	result, err := c.TextSearch(ctx, "hello", opts)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Equal(t, int32(1), result.Data.Total)
+}
+
+func TestGetCommonGroupsHandler(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 0.5, "current_ballance": 99.5, "request_duration": "40ms"},
+		"data": [
+			{"id": 111, "title": "Shared Group", "isPrivate": false, "isChannel": false}
+		]
+	}`
+
+	server, c := setupTestServer(t, 200, response)
+	defer server.Close()
+
+	ctx := context.Background()
+	result, err := c.GetCommonGroups(ctx, []int64{111, 222})
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 1)
+}
+
+func TestGetGroupMembersHandler(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 15, "current_ballance": 85, "request_duration": "200ms"},
+		"data": [
+			{"id": 111, "first_name": "Alice", "is_active": true, "today_msg": 5, "has_photo": true},
+			{"id": 222, "first_name": "Bob", "is_active": true, "today_msg": 0, "has_photo": false}
+		]
+	}`
+
+	server, c := setupTestServer(t, 200, response)
+	defer server.Close()
+
+	ctx := context.Background()
+	result, err := c.GetGroupMembers(ctx, 999)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 2)
+}
+
+func TestGetUserStickersHandler(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 1, "current_ballance": 99, "request_duration": "50ms"},
+		"data": [
+			{"sticker_set_id": 12345, "last_seen": "2024-01-01", "min_seen": "2023-01-01", "title": "My Pack", "short_name": "mypack", "stickers_count": 30}
+		]
+	}`
+
+	server, c := setupTestServer(t, 200, response)
+	defer server.Close()
+
+	ctx := context.Background()
+	result, err := c.GetUserStickers(ctx, 111)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 1)
+	assert.Equal(t, "My Pack", *result.Data[0].Title)
+}
+
+func TestGetGiftsRelationHandler(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 5, "current_ballance": 95, "request_duration": "100ms"},
+		"data": [
+			{
+				"from_user_id": 111,
+				"from_first_name": "Alice",
+				"from_is_active": true,
+				"to_user_id": 222,
+				"to_first_name": "Bob",
+				"to_is_active": true
+			}
+		]
+	}`
+
+	server, c := setupTestServer(t, 200, response)
+	defer server.Close()
+
+	ctx := context.Background()
+	opts := client.GiftsRelationOptions{Page: 1, PageSize: 20}
+	result, err := c.GetGiftsRelation(ctx, 111, opts)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 1)
+	assert.Equal(t, int64(111), result.Data[0].FromUserID)
+}
+
+func TestGetUserReputationHandler(t *testing.T) {
+	response := `{"spam_score": 0, "is_scammer": false}`
+
+	server, c := setupTestServer(t, 200, response)
+	defer server.Close()
+
+	ctx := context.Background()
+	result, err := c.GetUserReputation(ctx, 111)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+func TestGetBotRandomHandler(t *testing.T) {
+	response := `{"user_id": 12345, "username": "randombot"}`
+
+	server, c := setupTestServer(t, 200, response)
+	defer server.Close()
+
+	ctx := context.Background()
+	result, err := c.GetBotRandom(ctx)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
 }
 
 func TestErrorHandling(t *testing.T) {

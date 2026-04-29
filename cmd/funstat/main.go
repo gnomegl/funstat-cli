@@ -232,7 +232,7 @@ func initConfig() {
 	viper.SetEnvPrefix("FUNSTAT")
 
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		fmt.Fprintln(os.Stderr, "Using config file:", viper.ConfigFileUsed())
 	}
 
 	if apiKey == "" {
@@ -360,8 +360,7 @@ func getUserGroupsCount(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Groups count: %d\n", count)
-	return nil
+	return printJSON(count)
 }
 
 func getUserMessages(cmd *cobra.Command, args []string) error {
@@ -416,8 +415,7 @@ func getUserMessagesCount(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Messages count: %d\n", count)
-	return nil
+	return printJSON(count)
 }
 
 func getUserNames(cmd *cobra.Command, args []string) error {

@@ -620,7 +620,7 @@ func TestGetUserNames(t *testing.T) {
 		response   string
 		statusCode int
 		wantErr    bool
-		validate   func(*testing.T, *UserChatInfoArrayAPIAnswer)
+		validate   func(*testing.T, *UsernameHistoryAPIAnswer)
 	}{
 		{
 			name:   "names history success",
@@ -629,16 +629,18 @@ func TestGetUserNames(t *testing.T) {
 				"success": true,
 				"tech": {"request_cost": 3, "current_ballance": 97, "request_duration": "50ms"},
 				"data": [
-					{"firstMessage": "2023-01-01T00:00:00Z", "lastMessage": "2023-06-01T00:00:00Z"},
-					{"firstMessage": "2023-06-02T00:00:00Z", "lastMessage": "2024-01-01T00:00:00Z"}
+					{"name": "John Doe", "date_time": "2023-01-01T00:00:00Z"},
+					{"name": "John Smith", "date_time": "2023-06-02T00:00:00Z"}
 				]
 			}`,
 			statusCode: 200,
 			wantErr:    false,
-			validate: func(t *testing.T, result *UserChatInfoArrayAPIAnswer) {
+			validate: func(t *testing.T, result *UsernameHistoryAPIAnswer) {
 				require.NotNil(t, result)
 				assert.True(t, result.Success)
 				assert.Len(t, result.Data, 2)
+				assert.Equal(t, "John Doe", result.Data[0].Name)
+				assert.Equal(t, "John Smith", result.Data[1].Name)
 				assert.Equal(t, float32(3), result.Tech.RequestCost)
 			},
 		},
@@ -799,6 +801,22 @@ func TestContextCancellation(t *testing.T) {
 	assert.Contains(t, err.Error(), "context deadline exceeded")
 }
 
+func TestErrorWithNonAppProblemJSON(t *testing.T) {
+	// When the API returns a 400+ status with valid JSON that isn't an AppProblem,
+	// we should fall back to the generic status code error instead of "API error:  - "
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(502)
+		w.Write([]byte(`{"error": "bad gateway"}`))
+	}))
+	defer server.Close()
+
+	client := New("test-key", WithBaseURL(server.URL))
+	_, err := client.GetUserStatsMin(context.Background(), 123456)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "status 502")
+	assert.NotContains(t, err.Error(), "API error:  - ")
+}
+
 func TestAuthenticationHeader(t *testing.T) {
 	apiKey := "test-secret-key"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -812,6 +830,278 @@ func TestAuthenticationHeader(t *testing.T) {
 	client := New(apiKey, WithBaseURL(server.URL))
 	_, err := client.GetUserStatsMin(context.Background(), 123456)
 	require.NoError(t, err)
+}
+
+func TestTextSearch(t *testing.T) {
+	tests := []struct {
+		name       string
+		text       string
+		opts       TextSearchOptions
+		response   string
+		statusCode int
+		wantErr    bool
+		validate   func(*testing.T, *TextSearchAPIAnswer)
+	}{
+		{
+			name: "text search success",
+			text: "hello world",
+			opts: TextSearchOptions{Page: 1, PageSize: 10},
+			response: `{
+				"success": true,
+				"tech": {"request_cost": 0.1, "current_ballance": 99.9, "request_duration": "30ms"},
+				"data": {
+					"total": 5,
+					"data": [
+						{"message_id": 100, "user_id": 111, "date": "2024-01-01T12:00:00Z", "text": "hello world!", "is_active": true, "group": {"id": 222, "title": "Test Group", "isPrivate": false, "isChannel": false}}
+					],
+					"isLastPage": false,
+					"pageSize": 10,
+					"currentPage": 1,
+					"totalPages": 1,
+					"isSliding": false
+				}
+			}`,
+			statusCode: 200,
+			wantErr:    false,
+			validate: func(t *testing.T, result *TextSearchAPIAnswer) {
+				require.NotNil(t, result)
+				assert.True(t, result.Success)
+				assert.Equal(t, int32(5), result.Data.Total)
+				assert.Len(t, result.Data.Data, 1)
+				assert.Equal(t, "hello world!", result.Data.Data[0].Text)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "/api/v1/text/search", r.URL.Path)
+				assert.Equal(t, tt.text, r.URL.Query().Get("text"))
+				w.WriteHeader(tt.statusCode)
+				w.Write([]byte(tt.response))
+			}))
+			defer server.Close()
+
+			client := New("test-key", WithBaseURL(server.URL))
+			result, err := client.TextSearch(context.Background(), tt.text, tt.opts)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			if tt.validate != nil {
+				tt.validate(t, result)
+			}
+		})
+	}
+}
+
+func TestGetCommonGroups(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 0.5, "current_ballance": 99.5, "request_duration": "40ms"},
+		"data": [
+			{"id": 111, "title": "Shared Group", "isPrivate": false, "isChannel": false}
+		]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/groups/common_groups", r.URL.Path)
+		ids := r.URL.Query()["id"]
+		assert.Len(t, ids, 2)
+		w.WriteHeader(200)
+		w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	client := New("test-key", WithBaseURL(server.URL))
+	result, err := client.GetCommonGroups(context.Background(), []int64{111, 222})
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 1)
+	assert.Equal(t, "Shared Group", result.Data[0].Title)
+}
+
+func TestGetCommonGroupsStat(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 5, "current_ballance": 95, "request_duration": "80ms"},
+		"data": [
+			{"user_id": 222, "common_groups": 3, "first_name": "Alice", "is_user_active": true},
+			{"user_id": 333, "common_groups": 1, "first_name": "Bob", "is_user_active": true}
+		]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.URL.Path, "/common_groups_stat")
+		w.WriteHeader(200)
+		w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	client := New("test-key", WithBaseURL(server.URL))
+	result, err := client.GetCommonGroupsStat(context.Background(), 111)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 2)
+	assert.Equal(t, int64(222), result.Data[0].UserID)
+	assert.Equal(t, int32(3), result.Data[0].CommonGroups)
+}
+
+func TestGetUsernameUsage(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 0.1, "current_ballance": 99.9, "request_duration": "20ms"},
+		"data": {
+			"actualUsers": [{"id": 111, "username": "testuser", "is_active": true, "is_bot": false}],
+			"usageByUsersInThePast": [{"id": 222, "username": "testuser", "is_active": false, "is_bot": false}],
+			"actualGroupsOrChannels": [],
+			"mentionByChannelOrGroupDesc": []
+		}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/users/username_usage", r.URL.Path)
+		assert.Equal(t, "testuser", r.URL.Query().Get("username"))
+		w.WriteHeader(200)
+		w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	client := New("test-key", WithBaseURL(server.URL))
+	result, err := client.GetUsernameUsage(context.Background(), "@testuser")
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data.ActualUsers, 1)
+	assert.Len(t, result.Data.UsageByUsersInThePast, 1)
+}
+
+func TestGetGroupMembers(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 15, "current_ballance": 85, "request_duration": "200ms"},
+		"data": [
+			{"id": 111, "first_name": "Alice", "is_active": true, "today_msg": 5, "has_photo": true},
+			{"id": 222, "first_name": "Bob", "username": "bob", "is_active": true, "today_msg": 0, "has_photo": false}
+		]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.URL.Path, "/members")
+		w.WriteHeader(200)
+		w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	client := New("test-key", WithBaseURL(server.URL))
+	result, err := client.GetGroupMembers(context.Background(), 999)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 2)
+	assert.Equal(t, int64(111), result.Data[0].ID)
+	assert.Equal(t, "bob", *result.Data[1].Username)
+}
+
+func TestGetGiftsRelation(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 5, "current_ballance": 95, "request_duration": "100ms"},
+		"data": [
+			{
+				"from_user_id": 111,
+				"from_first_name": "Alice",
+				"from_is_active": true,
+				"to_user_id": 222,
+				"to_first_name": "Bob",
+				"to_is_active": true,
+				"last_gift_date": "2024-06-15T10:00:00Z"
+			}
+		]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.URL.Path, "/gifts_relation")
+		assert.Equal(t, "1", r.URL.Query().Get("page"))
+		assert.Equal(t, "20", r.URL.Query().Get("pageSize"))
+		w.WriteHeader(200)
+		w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	client := New("test-key", WithBaseURL(server.URL))
+	opts := GiftsRelationOptions{Page: 1, PageSize: 20}
+	result, err := client.GetGiftsRelation(context.Background(), 111, opts)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 1)
+	assert.Equal(t, int64(111), result.Data[0].FromUserID)
+	assert.Equal(t, int64(222), result.Data[0].ToUserID)
+}
+
+func TestGetUserStickers(t *testing.T) {
+	response := `{
+		"success": true,
+		"tech": {"request_cost": 1, "current_ballance": 99, "request_duration": "50ms"},
+		"data": [
+			{"sticker_set_id": 12345, "last_seen": "2024-01-01", "min_seen": "2023-01-01", "title": "My Pack", "short_name": "mypack", "stickers_count": 30}
+		]
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.URL.Path, "/stickers")
+		w.WriteHeader(200)
+		w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	client := New("test-key", WithBaseURL(server.URL))
+	result, err := client.GetUserStickers(context.Background(), 111)
+	require.NoError(t, err)
+	assert.True(t, result.Success)
+	assert.Len(t, result.Data, 1)
+	assert.Equal(t, "My Pack", *result.Data[0].Title)
+	assert.Equal(t, int64(12345), result.Data[0].StickerSetID)
+}
+
+func TestGetUserReputation(t *testing.T) {
+	response := `{"spam_score": 0, "is_scammer": false}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/users/reputation", r.URL.Path)
+		assert.Equal(t, "111", r.URL.Query().Get("id"))
+		w.WriteHeader(200)
+		w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	client := New("test-key", WithBaseURL(server.URL))
+	result, err := client.GetUserReputation(context.Background(), 111)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
+func TestGetBotRandom(t *testing.T) {
+	response := `{"user_id": 12345, "username": "randombot"}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/api/v1/bot/random", r.URL.Path)
+		w.WriteHeader(200)
+		w.Write([]byte(response))
+	}))
+	defer server.Close()
+
+	client := New("test-key", WithBaseURL(server.URL))
+	result, err := client.GetBotRandom(context.Background())
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+
+	var data map[string]interface{}
+	err = json.Unmarshal(result, &data)
+	require.NoError(t, err)
+	assert.Equal(t, "randombot", data["username"])
 }
 
 func ptr[T any](v T) *T {
